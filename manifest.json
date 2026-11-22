@@ -1,7 +1,7 @@
 {
-  "name": "CALGAS Capacitors Production Tracker",
-  "short_name": "Production",
-  "description": "Order to dispatch production tracking for capacitor manufacturing.",
+  "name": "CALGAS Orders & Dispatch",
+  "short_name": "Dispatch",
+  "description": "Customer orders, stores receipts of finished batches, and dispatches with a printable delivery note.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
