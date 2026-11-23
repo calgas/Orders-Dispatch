@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="app-version" content="4.0.0">
+<meta name="app-version" content="4.1.0">
 <meta name="theme-color" content="#15181d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -651,7 +651,7 @@
    app opens at once next time and refreshes behind what is on screen.
    ========================================================================= */
 
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.1.0';
 const OD_API_URL = 'https://script.google.com/macros/s/AKfycbx_STLX2W1VDwOsxv3UpdpbPitg2ICXHXtbItWEvesmoQsuBdKO9Eg6KHwSoIZlPeO0CA/exec';
 const STOCK_API_URL = 'https://script.google.com/macros/s/AKfycbzs_aW0G-NvVvs-_Yk41d4esq1lkKVBTzQEQTrbbIKe7kQfoYdXD3cuhd6Wt2UQ6MU0/exec';
 const APP_URL = 'https://calgas.github.io/Production-Tracker/';
@@ -966,6 +966,10 @@ const U = (v) => String(v === null || v === undefined ? '' : v).trim().toUpperCa
 function today0() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
 function isoDay(v) { if (!v) return ''; const d = new Date(v); if (isNaN(d)) return ''; return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
 function day(v) { return v ? dt(v, false) : ''; }
+// Rates, amounts and values are internal (4.1.0): shown only to people given
+// "See and enter rates and amounts" in Stock Management's Team & Access; the
+// backend doesn't send them to anyone else.
+function seesRates() { return !!(S.D && S.D.can && S.D.can.rates); }
 function money(v) { return v === '' || v === null || v === undefined ? '' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function buildIndex() {
@@ -1219,7 +1223,7 @@ function renderOrder(r) {
     const x = S.by.use[l.Line_ID];
     const batches = x.batches.map(b => { const rc = S.by.receiptOfBatch[U(b.Batch_No)]; return `${bctLink(b.Batch_No)} <span class="muted">${rc ? 'in stores' : b.Audited ? 'passed FA' : b.Status === 'Open' ? 'stage ' + Math.ceil(num(b.Step) / 2 + 0.5) : b.Status}</span>`; }).join('<br>');
     return `<tr><td>${num(l.Line_No)}</td><td><b class="mono">${esc(l.FG_Code)}</b><small class="muted" style="display:block">${esc(l.Product_Name)}</small>${l.Remarks ? `<small style="display:block">${esc(l.Remarks)}</small>` : ''}</td>
-      <td class="num">${fmtNum(l.Qty)}</td><td class="num">${l.Rate !== '' ? money(l.Rate) : '—'}</td><td>${batches || '<span class="muted">—</span>'}</td>
+      <td class="num">${fmtNum(l.Qty)}</td>${seesRates() ? `<td class="num">${l.Rate !== '' && l.Rate !== undefined ? money(l.Rate) : '—'}</td>` : ''}<td>${batches || '<span class="muted">—</span>'}</td>
       <td class="num">${fmtNum(x.inProd)}</td><td class="num">${fmtNum(x.inStores)}${x.fromStock ? `<small class="muted" style="display:block">+${fmtNum(x.fromStock)} from stock</small>` : ''}</td><td class="num">${fmtNum(x.dispatched)}</td><td class="num"><b>${fmtNum(x.toMake)}</b></td>
       <td>${x.toMake > 0 && s.open ? `<a class="btn btn-ghost btn-sm" href="${BCT_URL}#/new?line=${encodeURIComponent(l.Line_ID)}" target="_blank" rel="noopener">${ico('plus')}Open batch</a>` : ''}</td></tr>`;
   }).join('');
@@ -1229,9 +1233,9 @@ function renderOrder(r) {
       <div class="b-meta"><span>Date <b>${day(o.Order_Date)}</b></span>${o.Customer_PO ? `<span>Customer PO <b>${esc(o.Customer_PO)}</b>${o.PO_Date ? ' of ' + day(o.PO_Date) : ''}</span>` : ''}<span>Needed by <b>${o.Required_By ? day(o.Required_By) : '—'}</b></span><span>Entered by <b>${esc(nameOf(o.Created_By))}</b></span></div></div>
       <div class="bactions">${acts.join('')}</div></div>
     <div class="detail-grid"><div><div class="label">Ship to</div><div>${esc(o.Ship_To || [c.Ship_Address || c.Bill_Address, c.Ship_City || c.Bill_City].filter(Boolean).join(', ') || '—')}</div></div>
-      <div><div class="label">Progress</div>${progBar(s.t)}<small class="muted">${fmtNum(s.t.disp)} of ${fmtNum(s.t.qty)} dispatched${s.t.value ? ' · order value ₹' + money(s.t.value) : ''}</small></div>
+      <div><div class="label">Progress</div>${progBar(s.t)}<small class="muted">${fmtNum(s.t.disp)} of ${fmtNum(s.t.qty)} dispatched${seesRates() && s.t.value ? ' · order value ₹' + money(s.t.value) : ''}</small></div>
       ${o.Remarks ? `<div><div class="label">Remarks</div><div>${esc(o.Remarks)}</div></div>` : ''}${o.Close_Reason ? `<div><div class="label">${esc(o.Status)}</div><div>${esc(o.Close_Reason)}</div></div>` : ''}</div></div>
-    <div class="card tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>#</th><th>Item</th><th class="num">Ordered</th><th class="num">Rate</th><th>Batches</th><th class="num">In production</th><th class="num">In stores</th><th class="num">Dispatched</th><th class="num">To make</th><th></th></tr></thead><tbody>${lines}</tbody></table></div>
+    <div class="card tbl-wrap" style="margin-top:16px"><table class="tbl"><thead><tr><th>#</th><th>Item</th><th class="num">Ordered</th>${seesRates() ? '<th class="num">Rate</th>' : ''}<th>Batches</th><th class="num">In production</th><th class="num">In stores</th><th class="num">Dispatched</th><th class="num">To make</th><th></th></tr></thead><tbody>${lines}</tbody></table></div>
     <div class="card" style="margin-top:16px"><div class="card-head"><div><h3>Dispatches</h3></div></div><div class="rows" style="margin-top:10px">${dRows || '<div class="empty">Nothing dispatched yet.</div>'}</div></div>`;
 }
 ACT['edit-order'] = (el) => openOrderForm(S.by.order[el.dataset.o]);
@@ -1322,9 +1326,9 @@ function renderDispatches() {
   const ready = S.D.orders.filter(o => { const s = orderState(o); return s.open && s.t.stores > 0; });
   return `<div class="page-head"><div><p style="margin:0">${plural(list.length, 'dispatch', 'dispatches')} shown${ready.length ? ' · ' + plural(ready.length, 'order') + ' with goods in stores' : ''}</p></div>${S.D.can.dispatch ? `<button class="btn btn-primary" data-act="new-dispatch">${ico('truck')}New dispatch</button>` : ''}</div>
     <div class="toolbar"><div class="seg">${segs.map(s => `<button class="${v.dispatchFilter === s[0] ? 'on' : ''}" data-act="dfilter" data-v="${s[0]}">${s[1]} <span class="faint">${s[2]}</span></button>`).join('')}</div></div>
-    ${list.length ? `<div class="card tbl-wrap"><table class="tbl"><thead><tr><th>Dispatch</th><th>Date</th><th>Customer</th><th>Order</th><th>Invoice</th><th class="num">Qty</th><th class="num">Value</th><th>Vehicle / LR</th><th>Status</th></tr></thead><tbody>${list.map(d =>
+    ${list.length ? `<div class="card tbl-wrap"><table class="tbl"><thead><tr><th>Dispatch</th><th>Date</th><th>Customer</th><th>Order</th><th>Invoice</th><th class="num">Qty</th>${seesRates() ? '<th class="num">Value</th>' : ''}<th>Vehicle / LR</th><th>Status</th></tr></thead><tbody>${list.map(d =>
       `<tr class="click" data-act="open-dispatch" data-d="${esc(d.Dispatch_No)}"><td class="mono"><b>${esc(d.Dispatch_No)}</b></td><td>${day(d.Dispatch_Date)}</td><td>${esc(d.Customer_Name)}</td><td class="mono">${esc(d.Order_No || '—')}</td><td>${esc(d.Invoice_No || '')}</td>
-        <td class="num">${fmtNum(dispQty(d))}</td><td class="num">${dispValue(d) ? money(dispValue(d)) : '—'}</td><td>${esc([d.Vehicle_No, d.LR_No].filter(Boolean).join(' · '))}</td>
+        <td class="num">${fmtNum(dispQty(d))}</td>${seesRates() ? `<td class="num">${dispValue(d) ? money(dispValue(d)) : '—'}</td>` : ''}<td>${esc([d.Vehicle_No, d.LR_No].filter(Boolean).join(' · '))}</td>
         <td>${d.Status === 'Cancelled' ? '<span class="badge b-muted">Cancelled</span>' : unbooked(d) ? '<span class="badge b-bad">Not booked out</span>' : '<span class="badge b-ok">Dispatched</span>'}</td></tr>`).join('')}</tbody></table></div>`
       : '<div class="card empty"><div class="big">🚚</div>No dispatches here.</div>'}`;
 }
@@ -1626,7 +1630,7 @@ function openOrderForm(o) {
       <div class="field full"><label for="ofShip">Ship to <span class="muted" style="font-weight:400">(only if not the customer’s usual address)</span></label><textarea id="ofShip" maxlength="500">${esc(o ? o.Ship_To : '')}</textarea></div>
     </div>
     <div class="fsec">Items</div>
-    <div class="tbl-wrap"><table class="tbl lines-tbl"><thead><tr><th style="width:38%">Item <span class="req">*</span></th><th class="num">Qty <span class="req">*</span></th><th class="num">Rate (₹)</th><th>Needed by</th><th></th></tr></thead><tbody id="ofLines"></tbody></table></div>
+    <div class="tbl-wrap"><table class="tbl lines-tbl"><thead><tr><th style="width:38%">Item <span class="req">*</span></th><th class="num">Qty <span class="req">*</span></th>${seesRates() ? '<th class="num">Rate (₹)</th>' : ''}<th>Needed by</th><th></th></tr></thead><tbody id="ofLines"></tbody></table></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn btn-ghost btn-sm" id="ofAdd">${ico('plus')}Add item</button><button type="button" class="btn btn-ghost btn-sm hidden" id="ofRepeat">${ico('undo')}Repeat last order</button><span class="grow"></span><b id="ofTotal" class="muted"></b></div>
     <div class="field" style="margin-top:12px"><label for="ofRemarks">Remarks</label><textarea id="ofRemarks" maxlength="1000">${esc(o ? o.Remarks : '')}</textarea></div>
     <div class="form-error" id="ofErr"></div></div>
@@ -1639,7 +1643,7 @@ function openOrderForm(o) {
     tr.dataset.line = l.Line_ID || '';
     tr.innerHTML = `<td><input list="fgList" class="mono" data-k="FG_Code" value="${esc(l.FG_Code || '')}" placeholder="Type to search items" autocomplete="off" ${u && (u.batches.length || u.received || u.dispatched) ? 'readonly title="Has batches or dispatches"' : ''}><div class="hint" data-k="name">${esc(l.Product_Name || '')}</div></td>
       <td class="num"><input type="number" inputmode="numeric" min="1" step="1" data-k="Qty" value="${esc(l.Qty || '')}"></td>
-      <td class="num"><input type="number" inputmode="decimal" min="0" step="any" data-k="Rate" value="${esc(l.Rate === undefined ? '' : l.Rate)}"><div class="hint" data-k="rateFrom"></div></td>
+      ${seesRates() ? `<td class="num"><input type="number" inputmode="decimal" min="0" step="any" data-k="Rate" value="${esc(l.Rate === undefined ? '' : l.Rate)}"><div class="hint" data-k="rateFrom"></div></td>` : ''}
       <td><input type="date" data-k="Required_By" value="${isoDay(l.Required_By)}"></td>
       <td><button type="button" class="icon-btn" data-rm title="Remove">${ico('trash')}</button></td>`;
     tb.appendChild(tr);
@@ -1648,16 +1652,17 @@ function openOrderForm(o) {
       const f = S.by.fg[U(code.value)];
       $('[data-k="name"]', tr).textContent = f ? f.name + ' · in stock ' + fmtNum(f.balance) : code.value ? 'Not in Stock Management’s FG list.' : '';
       $('[data-k="name"]', tr).classList.toggle('warn', !f && !!code.value);
-      if (f && rate.value === '' && $('#ofCust', m.el).value) { const r = lastRate($('#ofCust', m.el).value, f.code); if (r) { rate.value = r.rate; $('[data-k="rateFrom"]', tr).textContent = 'As ' + r.from; } }
+      if (f && rate && rate.value === '' && $('#ofCust', m.el).value) { const r = lastRate($('#ofCust', m.el).value, f.code); if (r) { rate.value = r.rate; $('[data-k="rateFrom"]', tr).textContent = 'As ' + r.from; } }
       total();
     });
-    rate.addEventListener('input', () => { $('[data-k="rateFrom"]', tr).textContent = ''; total(); });
+    if (rate) rate.addEventListener('input', () => { $('[data-k="rateFrom"]', tr).textContent = ''; total(); });
     $('[data-k="Qty"]', tr).addEventListener('input', total);
     $('[data-rm]', tr).addEventListener('click', () => { if (code.readOnly) { toast('This item has batches or dispatches. Set its quantity instead.', true); return; } tr.remove(); total(); });
     return tr;
   };
-  const rows = () => $$('tr', tb).map(tr => ({ Line_ID: tr.dataset.line, FG_Code: $('[data-k="FG_Code"]', tr).value.trim(), Qty: $('[data-k="Qty"]', tr).value, Rate: $('[data-k="Rate"]', tr).value, Required_By: $('[data-k="Required_By"]', tr).value }));
-  const total = () => { const r = rows().filter(x => num(x.Qty) > 0); const q = r.reduce((t, x) => t + num(x.Qty), 0), v = r.reduce((t, x) => t + num(x.Qty) * num(x.Rate), 0); $('#ofTotal', m.el).textContent = r.length ? plural(r.length, 'item') + ' · ' + fmtNum(q) + ' pcs' + (v ? ' · ₹' + money(v) : '') : ''; };
+  const rateOf = (tr) => { const r = $('[data-k="Rate"]', tr); return r ? r.value : undefined; };
+  const rows = () => $$('tr', tb).map(tr => ({ Line_ID: tr.dataset.line, FG_Code: $('[data-k="FG_Code"]', tr).value.trim(), Qty: $('[data-k="Qty"]', tr).value, Rate: rateOf(tr), Required_By: $('[data-k="Required_By"]', tr).value }));
+  const total = () => { const r = rows().filter(x => num(x.Qty) > 0); const q = r.reduce((t, x) => t + num(x.Qty), 0), v = seesRates() ? r.reduce((t, x) => t + num(x.Qty) * num(x.Rate), 0) : 0; $('#ofTotal', m.el).textContent = r.length ? plural(r.length, 'item') + ' · ' + fmtNum(q) + ' pcs' + (v ? ' · ₹' + money(v) : '') : ''; };
   (edit ? openLines(o.Order_No) : [{}]).forEach(addRow);
   total();
   $('#ofAdd', m.el).addEventListener('click', () => { const tr = addRow(); $('input', tr).focus(); });
@@ -1809,11 +1814,11 @@ function openDispatchForm(pre) {
       <div class="field"><label for="dfDate">Dispatch date</label><input id="dfDate" type="date" value="${isoDay(Date.now())}"></div>
     </div>
     <div class="fsec">Goods</div>
-    <div class="tbl-wrap"><table class="tbl lines-tbl"><thead><tr><th style="width:36%">Item</th><th class="num">Left on order</th><th class="num">Qty <span class="req">*</span></th><th class="num">Rate (₹)</th><th class="num">Disc. %</th></tr></thead><tbody id="dfLines"></tbody></table></div>
+    <div class="tbl-wrap"><table class="tbl lines-tbl"><thead><tr><th style="width:36%">Item</th><th class="num">Left on order</th><th class="num">Qty <span class="req">*</span></th>${seesRates() ? '<th class="num">Rate (₹)</th><th class="num">Disc. %</th>' : ''}</tr></thead><tbody id="dfLines"></tbody></table></div>
     <div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn btn-ghost btn-sm" id="dfAdd">${ico('plus')}Add item</button><span class="grow"></span><b class="muted" id="dfTotal"></b></div>
     <div class="fsec">Transport and invoice</div>
     <div class="form-grid">${transportFields({})}
-      <label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="dfRates" checked> Show rates and amounts on the delivery note</label>
+      ${seesRates() ? '<label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="dfRates" checked> Show rates and amounts on the delivery note</label>' : ''}
       <div class="field full"><label for="dfRemarks">Remarks</label><textarea id="dfRemarks" maxlength="500"></textarea></div></div>
     <div class="fsec">Photos <span class="muted" style="font-weight:400">(packed goods, loaded vehicle)</span></div>
     <div class="capture">${photoBox('Photo_1', 'Packed goods', '')}${photoBox('Photo_2', 'Loaded vehicle', '')}</div>
@@ -1842,11 +1847,11 @@ function openDispatchForm(pre) {
         <div class="hint" data-k="info"></div><div class="serials" data-k="serials"></div><input data-k="Serials" class="hidden mono" placeholder="Serial nos. for goods from earlier stock" maxlength="500" style="margin-top:4px"></td>
       <td class="num">${x ? fmtNum(x.left) : '—'}</td>
       <td class="num"><input type="number" inputmode="numeric" min="0" step="1" data-k="Qty" value="${esc(l.qty || '')}"></td>
-      <td class="num"><input type="number" inputmode="decimal" min="0" step="any" data-k="Rate" value="${esc(l.Rate === undefined ? '' : l.Rate)}"></td>
-      <td class="num"><input type="number" inputmode="decimal" min="0" max="100" step="any" data-k="Disc_Pct" value=""></td>`;
+      ${seesRates() ? `<td class="num"><input type="number" inputmode="decimal" min="0" step="any" data-k="Rate" value="${esc(l.Rate === undefined ? '' : l.Rate)}"></td>
+      <td class="num"><input type="number" inputmode="decimal" min="0" max="100" step="any" data-k="Disc_Pct" value=""></td>` : ''}`;
     tb.appendChild(tr);
     $$('input', tr).forEach(i => i.addEventListener('input', () => {
-      if (i.dataset.k === 'FG_Code') { const r = lastRate($('#dfCust', m.el).value, i.value); const rt = $('[data-k="Rate"]', tr); if (r && rt.value === '') rt.value = r.rate; }
+      if (i.dataset.k === 'FG_Code') { const r = lastRate($('#dfCust', m.el).value, i.value); const rt = $('[data-k="Rate"]', tr); if (r && rt && rt.value === '') rt.value = r.rate; }
       preview();
     }));
     return tr;
@@ -1865,7 +1870,7 @@ function openDispatchForm(pre) {
     if (!tb.children.length) lineRow({});
     preview();
   };
-  const rows = () => $$('tr', tb).map(tr => ({ tr, Line_ID: tr.dataset.line, FG_Code: ($('[data-k="FG_Code"]', tr).value || '').trim(), Qty: num($('[data-k="Qty"]', tr).value), Rate: $('[data-k="Rate"]', tr).value, Disc_Pct: $('[data-k="Disc_Pct"]', tr).value, Serials: $('[data-k="Serials"]', tr).value.trim() }));
+  const rows = () => $$('tr', tb).map(tr => ({ tr, Line_ID: tr.dataset.line, FG_Code: ($('[data-k="FG_Code"]', tr).value || '').trim(), Qty: num($('[data-k="Qty"]', tr).value), Rate: seesRates() ? $('[data-k="Rate"]', tr).value : '', Disc_Pct: seesRates() ? $('[data-k="Disc_Pct"]', tr).value : '', Serials: $('[data-k="Serials"]', tr).value.trim() }));
   const preview = () => {
     const pool = storesPool(), need = {};
     let qty = 0, value = 0, packs = 0;
@@ -1912,7 +1917,7 @@ function openDispatchForm(pre) {
     if (over) { if (!await confirmBox(over.FG_Code + ': ' + fmtNum(over.Qty) + ' is more than the ' + fmtNum(S.by.use[over.Line_ID].left) + ' left on the order. Dispatch the extra anyway?', { title: 'More than ordered', ok: 'Dispatch extra' })) return; allowExcess = true; }
     const t = readTransport(m);
     if (t.Eway_Bill && !/^\d{12}$/.test(t.Eway_Bill)) { err.textContent = 'An e-way bill number has 12 digits.'; return; }
-    const dispatch = Object.assign(t, { Customer_ID: c, Order_No: $('#dfOrder', m.el).value, Dispatch_Date: val(m, 'dfDate'), Show_Rates: $('#dfRates', m.el).checked,
+    const dispatch = Object.assign(t, { Customer_ID: c, Order_No: $('#dfOrder', m.el).value, Dispatch_Date: val(m, 'dfDate'), Show_Rates: $('#dfRates', m.el) ? $('#dfRates', m.el).checked : true,
       Remarks: val(m, 'dfRemarks'), Photo_1: val(m, 'ph_Photo_1'), Photo_2: val(m, 'ph_Photo_2') });
     const done = btnBusy(e.currentTarget, 'Dispatching…');
     try {
@@ -1929,7 +1934,7 @@ ACT['edit-dispatch'] = (el) => {
   const d = S.by.disp[el.dataset.d];
   const m = openModal(modalHead('Transport and invoice', d.Dispatch_No, esc(d.Customer_Name)) +
     `<div class="modal-body"><div class="form-grid">${transportFields(d)}
-      <label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edRates" ${d.Show_Rates === false || String(d.Show_Rates) === 'false' ? '' : 'checked'}> Show rates and amounts on the delivery note</label>
+      ${seesRates() ? `<label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edRates" ${d.Show_Rates === false || String(d.Show_Rates) === 'false' ? '' : 'checked'}> Show rates and amounts on the delivery note</label>` : ''}
       <div class="field full"><label for="edRemarks">Remarks</label><textarea id="edRemarks" maxlength="500">${esc(d.Remarks || '')}</textarea></div></div>
       <div class="fsec">Photos</div><div class="capture">${photoBox('Photo_1', 'Packed goods', d.Photo_1)}${photoBox('Photo_2', 'Loaded vehicle', d.Photo_2)}</div>
       <div class="form-error" id="edErr"></div></div>
@@ -1938,7 +1943,8 @@ ACT['edit-dispatch'] = (el) => {
   $('#edSave', m.el).addEventListener('click', async (e) => {
     const t = readTransport(m);
     if (t.Eway_Bill && !/^\d{12}$/.test(t.Eway_Bill)) { $('#edErr', m.el).textContent = 'An e-way bill number has 12 digits.'; return; }
-    Object.assign(t, { Show_Rates: $('#edRates', m.el).checked, Remarks: val(m, 'edRemarks'), Photo_1: val(m, 'ph_Photo_1'), Photo_2: val(m, 'ph_Photo_2') });
+    if ($('#edRates', m.el)) t.Show_Rates = $('#edRates', m.el).checked;
+    Object.assign(t, { Remarks: val(m, 'edRemarks'), Photo_1: val(m, 'ph_Photo_1'), Photo_2: val(m, 'ph_Photo_2') });
     const done = btnBusy(e.currentTarget);
     try { await api('updateDispatch', { dispatchNo: d.Dispatch_No, dispatch: t }); m.close(); await refresh(true); toast('Saved.', 'ok'); }
     catch (x) { $('#edErr', m.el).textContent = x.message; } finally { done(); }
@@ -1972,7 +1978,8 @@ function inWords(n) {
 }
 function docHtml(d, copy) {
   const st = S.D.settings || {}, lines = S.by.dlines[d.Dispatch_No] || [], alloc = S.by.alloc[d.Dispatch_No] || [];
-  const rates = !(d.Show_Rates === false || String(d.Show_Rates) === 'false');
+  // Rates print only for someone who may see them, and only if the note says so.
+  const rates = seesRates() && !(d.Show_Rates === false || String(d.Show_Rates) === 'false');
   const own = String(st.State_Code || '').padStart(2, '0');
   const theirs = stateCode(d.Ship_GSTIN || d.Buyer_GSTIN, d.Place_Of_Supply);
   const intra = !theirs || theirs === own;
