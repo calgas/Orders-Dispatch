@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="app-version" content="4.1.1">
+<meta name="app-version" content="4.1.2">
 <meta name="theme-color" content="#15181d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -547,6 +547,73 @@
     .doc + .doc { page-break-before: always; }
   }
 </style>
+<style>
+/* ---- Install and update prompts (shared; see shared/app-prompts.js) ---- */
+.ap-hidden { display: none !important; }
+.ap-overlay { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(181, 101, 46, 0.28), rgba(10, 12, 15, 0.78) 60%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: apFade .2s ease both; font-family: var(--font, system-ui, -apple-system, 'Segoe UI', sans-serif); }
+.ap-card { position: relative; width: 100%; max-width: 420px; background: var(--panel, #fff); color: var(--ink, #1c2024); border-radius: 22px;
+  padding: 30px 28px 24px; text-align: center; box-shadow: 0 30px 70px -18px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(181, 101, 46, 0.18);
+  animation: apPop .32s var(--spring, cubic-bezier(.25, 1.1, .32, 1)) both; overflow: hidden; }
+.ap-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: linear-gradient(90deg, #b5652e, #e0a15a, #b5652e); background-size: 200% 100%; animation: apShine 3s linear infinite; }
+.ap-badge { position: relative; width: 76px; height: 76px; margin: 2px auto 14px; border-radius: 22px; background: var(--paper, #f3f0ea);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px -8px rgba(181, 101, 46, 0.55); }
+.ap-badge::after { content: ''; position: absolute; inset: -7px; border-radius: 28px; border: 2px solid rgba(181, 101, 46, 0.45); animation: apRing 1.8s ease-out infinite; }
+.ap-badge img { width: 54px; height: 54px; object-fit: contain; border-radius: 12px; }
+.ap-badge-corner { position: absolute; right: -8px; bottom: -8px; width: 30px; height: 30px; border-radius: 50%; background: #b5652e; color: #fff;
+  display: flex; align-items: center; justify-content: center; border: 3px solid var(--panel, #fff); }
+.ap-badge-corner svg { width: 15px; height: 15px; animation: apTurn 2.4s linear infinite; }
+.ap-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #b5652e; }
+.ap-card h2 { margin: 6px 0 8px; font-size: 22px; line-height: 1.2; font-weight: 800; color: var(--ink, #1c2024); letter-spacing: -0.01em; }
+.ap-lead { margin: 0 auto; max-width: 340px; font-size: 14px; line-height: 1.5; color: var(--ink-soft, #5c6570); }
+.ap-ver { margin: 12px auto 0; display: inline-block; font-size: 12px; font-weight: 700; color: var(--ink-soft, #5c6570); background: var(--line-soft, #eeeae1);
+  border-radius: 999px; padding: 5px 12px; font-variant-numeric: tabular-nums; }
+.ap-ver:empty { display: none; }
+.ap-perks { list-style: none; margin: 16px auto 0; padding: 0; max-width: 320px; text-align: left; display: grid; gap: 9px; }
+.ap-perks li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink, #1c2024); }
+.ap-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(63, 158, 115, 0.15); color: #3f9e73; display: flex; align-items: center; justify-content: center; }
+.ap-steps { list-style: none; margin: 16px auto 0; padding: 0; max-width: 330px; text-align: left; display: grid; gap: 10px; }
+.ap-steps li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--ink, #1c2024); flex-wrap: wrap; }
+.ap-step-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #b5652e; color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.ap-key { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 8px; background: var(--line-soft, #eeeae1); font-weight: 700; color: #2f6fd6; }
+.ap-btn { margin-top: 22px; width: 100%; min-height: 54px; border: 0; border-radius: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  font: inherit; font-size: 16.5px; font-weight: 800; color: #fff; letter-spacing: .01em;
+  background: linear-gradient(135deg, #c8743a 0%, #b5652e 45%, #8a4a1e 100%); box-shadow: 0 14px 28px -10px rgba(181, 101, 46, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  position: relative; overflow: hidden; transition: transform .12s ease, box-shadow .2s ease; animation: apNudge 2.6s ease-in-out 1.2s infinite; }
+.ap-btn::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-20deg); animation: apSweep 2.6s ease-in-out 0.6s infinite; }
+.ap-btn:hover { box-shadow: 0 18px 34px -10px rgba(181, 101, 46, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.ap-btn:active { transform: scale(.98); }
+.ap-btn:focus-visible { outline: 3px solid rgba(181, 101, 46, 0.45); outline-offset: 3px; }
+.ap-btn:disabled { opacity: .8; cursor: progress; animation: none; }
+.ap-btn + .ap-btn { margin-top: 22px; }
+.ap-later { margin-top: 12px; background: none; border: 0; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-faint, #949ca6); cursor: pointer; border-radius: 8px; }
+.ap-later:hover { color: var(--ink-soft, #5c6570); background: var(--line-soft, #eeeae1); }
+.ap-spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.45); border-top-color: #fff; animation: apTurn .7s linear infinite; }
+.ap-strip { position: fixed; z-index: 8999; left: 50%; top: calc(10px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); max-width: calc(100% - 24px);
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: #1c2024; color: #fff; font-size: 13px; line-height: 1.35;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(181, 101, 46, 0.5); font-family: var(--font, system-ui, sans-serif); animation: apDrop .3s ease both; }
+.ap-strip b { color: #f0b47a; }
+.ap-strip-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #e0a15a; box-shadow: 0 0 0 0 rgba(224, 161, 90, 0.7); animation: apPulse 1.4s infinite; }
+@media (max-width: 520px) {
+  .ap-overlay { align-items: flex-end; padding: 0; }
+  .ap-card { max-width: none; border-radius: 24px 24px 0 0; padding: 28px 22px calc(22px + env(safe-area-inset-bottom, 0px)); animation-name: apSheet; }
+}
+@keyframes apFade { from { opacity: 0; } }
+@keyframes apPop { from { opacity: 0; transform: translateY(16px) scale(.96); } }
+@keyframes apSheet { from { transform: translateY(100%); } }
+@keyframes apDrop { from { opacity: 0; transform: translate(-50%, -12px); } }
+@keyframes apRing { 0% { opacity: .9; transform: scale(.94); } 100% { opacity: 0; transform: scale(1.14); } }
+@keyframes apTurn { to { transform: rotate(360deg); } }
+@keyframes apShine { to { background-position: -200% 0; } }
+@keyframes apSweep { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+@keyframes apNudge { 0%, 88%, 100% { transform: none; } 92% { transform: translateY(-2px); } 96% { transform: translateY(1px); } }
+@keyframes apPulse { 70% { box-shadow: 0 0 0 9px rgba(224, 161, 90, 0); } 100% { box-shadow: 0 0 0 0 rgba(224, 161, 90, 0); } }
+.ap-shake { animation: apShake .4s ease both; }
+@keyframes apShake { 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .ap-overlay *, .ap-strip, .ap-strip *, .ap-shake { animation: none !important; } }
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -654,6 +721,284 @@
 <input type="file" id="fileInput" accept="image/*" class="hidden">
 
 <script>
+/* =========================================================================
+   INSTALL AND UPDATE PROMPTS — the same in Stock Management, Batch Card
+   Tracker and Orders & Dispatch (source: apps-backend/shared/app-prompts.js;
+   Stock Management carries a copy between the APP-PROMPTS markers).
+
+   Update: a new version is found by the service worker or by reading the
+   version on the live page every few minutes and whenever the app comes
+   back to the front. A card that can't be dismissed asks for the update.
+   While a form is open it waits as a strip at the top, so nothing typed is
+   lost; when the form is saved or cancelled, the card comes up.
+
+   Install: the browser's install offer is kept and shown as a card after
+   sign-in — once each time the app is opened until it is installed, "Not
+   now" putting it off until the next time. iPhones and iPads, which have no
+   install offer, get the Share → Add to Home Screen steps.
+   ========================================================================= */
+const AppPrompts = (function () {
+  let C = null;
+  let reg = null, waiting = null, newVersion = '', wantReload = false, reloading = false;
+  let updateFound = false, deferred = null, installTimer = null, busyTimer = null;
+  const $id = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = (k, v) => { try { if (v === undefined) localStorage.removeItem(C.key + k); else localStorage.setItem(C.key + k, v); } catch (e) {} };
+  const read = (k) => { try { return localStorage.getItem(C.key + k); } catch (e) { return null; } };
+  const sread = (k) => { try { return sessionStorage.getItem(C.key + k); } catch (e) { return null; } };
+  const swrite = (k, v) => { try { sessionStorage.setItem(C.key + k, v); } catch (e) {} };
+  const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const busy = () => { try { return !!(C.isBusy && C.isBusy()); } catch (e) { return false; } };
+  const ready = () => { try { return !C.isReady || C.isReady(); } catch (e) { return true; } };
+  // 3.33.2 > 3.33.1; anything unreadable counts as not newer.
+  function newer(a, b) {
+    const x = String(a || '').split('.').map(Number), y = String(b || '').split('.').map(Number);
+    if (!x.length || x.some(isNaN)) return false;
+    for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+    return false;
+  }
+
+  const ICONS = {
+    up: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+    down: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>',
+    tick: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>',
+    share: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 12v8h14v-8"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>'
+  };
+
+  /* ---------------- update ---------------- */
+  function reload() { if (reloading) return; reloading = true; window.location.reload(); }
+  // Past any copy kept on the device: the address gains ?u=…, which the
+  // new page takes off again.
+  function reloadFresh() {
+    if (reloading) return;
+    reloading = true;
+    window.location.replace(location.pathname + '?u=' + Date.now() + location.hash);
+  }
+
+  // Something may be newer: a worker waiting, a worker that took over, or a
+  // version read from the live page. Offered only when the live page really
+  // is newer than this one — a page that is already the newest lets its
+  // waiting worker in quietly instead.
+  function found(worker, version) {
+    if (worker) waiting = worker;
+    const offer = (v) => {
+      if (v && newer(v, newVersion)) newVersion = v;
+      // Twice updated to this version and still not here: Google is still
+      // handing out the old page. Asked again in a while, not in a loop.
+      if (newVersion && Number(sread('tries:' + newVersion) || 0) >= 2) { setTimeout(() => { swrite('tries:' + newVersion, '0'); }, 10 * 60 * 1000); return; }
+      updateFound = true; present();
+    };
+    if (version) { if (newer(version, C.version)) offer(version); return; }
+    liveVersion().then((v) => {
+      if (v) {
+        if (newer(v, C.version)) offer(v);
+        else if (waiting && !wantReload) { try { waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} }
+        return;
+      }
+      if (worker) offer('');  // can't tell (no signal): offer what is waiting
+    });
+  }
+  // The version on the live page, read past every cache.
+  function liveVersion() {
+    const url = (C.pageUrl || './index.html') + '?v=' + Date.now();
+    return fetch(url, { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => {
+      const m = t.match(/<meta name="app-version" content="([^"]+)"/);
+      return m ? m[1] : '';
+    }).catch(() => '');
+  }
+  function check() {
+    if (reg) reg.update().catch(() => {});
+    liveVersion().then((v) => { if (v && newer(v, C.version)) found(null, v); });
+  }
+  function present() {
+    if (!updateFound) return;
+    hideInstall();
+    clearTimeout(busyTimer);
+    if (busy()) {
+      // A form is open: the update waits for it, at the top of the screen.
+      $id('apUpdateCard').classList.add('ap-hidden');
+      $id('apUpdateStrip').classList.remove('ap-hidden');
+      busyTimer = setTimeout(present, 1500);
+      return;
+    }
+    $id('apUpdateStrip').classList.add('ap-hidden');
+    paintUpdate();
+    $id('apUpdateCard').classList.remove('ap-hidden');
+    const b = $id('apUpdateGo');
+    if (b && document.activeElement !== b) setTimeout(() => { try { b.focus({ preventScroll: true }); } catch (e) {} }, 50);
+  }
+  function paintUpdate() {
+    const v = $id('apUpdateVer');
+    if (v) v.textContent = newVersion ? 'Version ' + newVersion + ' · you have ' + C.version : 'You have version ' + C.version;
+  }
+  function goUpdate() {
+    if (busy()) { present(); return; }
+    wantReload = true;
+    const b = $id('apUpdateGo');
+    b.disabled = true; b.innerHTML = '<span class="ap-spin"></span>Updating…';
+    // Tries for this version are counted, so a page that comes back old (a
+    // copy still on its way through Google's servers) can't loop.
+    const tries = Number(sread('tries:' + newVersion) || 0) + 1;
+    swrite('tries:' + newVersion, String(tries));
+    if (waiting) { waiting.postMessage({ type: 'SKIP_WAITING' }); setTimeout(reloadFresh, 2500); return; }
+    if (reg) {
+      // Not downloaded yet: fetch it, let it take over (that reloads), or
+      // load the new page straight from the server.
+      reg.update().then(() => {
+        const w = reg.waiting || reg.installing;
+        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        else if (w) w.addEventListener('statechange', () => { if (w.state === 'installed') w.postMessage({ type: 'SKIP_WAITING' }); });
+        else reloadFresh();
+      }).catch(reloadFresh);
+      setTimeout(reloadFresh, 5000);
+      return;
+    }
+    reloadFresh();
+  }
+
+  /* ---------------- install ---------------- */
+  function scheduleInstall(mode) {
+    if (standalone() || read('installed') || sread('install_later')) return;
+    clearTimeout(installTimer);
+    installTimer = setTimeout(function tryShow() {
+      if (standalone() || sread('install_later')) return;
+      // After sign-in, with nothing else in the way.
+      if (!ready() || busy() || updateFound || document.hidden) { installTimer = setTimeout(tryShow, 2000); return; }
+      showInstall(mode);
+    }, 2500);
+  }
+  function showInstall(mode) {
+    const card = $id('apInstall');
+    card.dataset.mode = mode;
+    $id('apInstallGo').classList.toggle('ap-hidden', mode === 'ios');
+    $id('apInstallSteps').classList.toggle('ap-hidden', mode !== 'ios');
+    $id('apInstallOk').classList.toggle('ap-hidden', mode !== 'ios');
+    card.classList.remove('ap-hidden');
+  }
+  function hideInstall() { const c = $id('apInstall'); if (c) c.classList.add('ap-hidden'); }
+  async function goInstall() {
+    if (!deferred) { hideInstall(); return; }
+    const b = $id('apInstallGo');
+    b.disabled = true;
+    try {
+      deferred.prompt();
+      const choice = await deferred.userChoice;
+      deferred = null;
+      if (choice && choice.outcome === 'accepted') { store('installed', '1'); hideInstall(); }
+      else { swrite('install_later', '1'); hideInstall(); }
+    } catch (e) { hideInstall(); }
+    finally { b.disabled = false; }
+  }
+
+  /* ---------------- set up ---------------- */
+  function build() {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-root';
+    const perks = (C.perks || []).map((p) => '<li><span class="ap-tick">' + ICONS.tick + '</span>' + esc(p) + '</li>').join('');
+    wrap.innerHTML =
+      // The update, waiting while a form is open.
+      '<div class="ap-strip ap-hidden" id="apUpdateStrip" role="status"><span class="ap-strip-dot"></span>' +
+        '<span><b>Update ready.</b> Save or cancel the open form, then it installs.</span></div>' +
+      // The update.
+      '<div class="ap-overlay ap-hidden" id="apUpdateCard" role="alertdialog" aria-modal="true" aria-labelledby="apUpdateTitle">' +
+        '<div class="ap-card">' +
+          '<div class="ap-badge ap-badge-update"><img src="' + esc(C.icon) + '" alt="" loading="lazy"><span class="ap-badge-corner">' + ICONS.up + '</span></div>' +
+          '<div class="ap-eyebrow">New version</div>' +
+          '<h2 id="apUpdateTitle">Update ' + esc(C.name) + '</h2>' +
+          '<p class="ap-lead">A newer version is ready. Update now to keep working with the latest fixes — it takes a few seconds and nothing you have saved changes.</p>' +
+          '<div class="ap-ver" id="apUpdateVer"></div>' +
+          '<button type="button" class="ap-btn" id="apUpdateGo">' + ICONS.up + 'Update now</button>' +
+        '</div></div>' +
+      // Install.
+      '<div class="ap-overlay ap-hidden" id="apInstall" role="dialog" aria-modal="true" aria-labelledby="apInstallTitle">' +
+        '<div class="ap-card">' +
+          '<div class="ap-badge"><img src="' + esc(C.icon) + '" alt="" loading="lazy"></div>' +
+          '<div class="ap-eyebrow">Get the app</div>' +
+          '<h2 id="apInstallTitle">Install ' + esc(C.name) + '</h2>' +
+          '<p class="ap-lead">Keep it on this device and open it in one tap, like any other app.</p>' +
+          (perks ? '<ul class="ap-perks">' + perks + '</ul>' : '') +
+          '<ol class="ap-steps ap-hidden" id="apInstallSteps">' +
+            '<li><span class="ap-step-n">1</span>Tap <span class="ap-key">' + ICONS.share + 'Share</span> in Safari’s bar</li>' +
+            '<li><span class="ap-step-n">2</span>Choose <span class="ap-key">' + ICONS.plus + 'Add to Home Screen</span></li>' +
+            '<li><span class="ap-step-n">3</span>Tap <b>Add</b> — the app is on your home screen</li></ol>' +
+          '<button type="button" class="ap-btn" id="apInstallGo">' + ICONS.down + 'Install app</button>' +
+          '<button type="button" class="ap-btn" id="apInstallOk">Got it</button>' +
+          '<button type="button" class="ap-later" id="apInstallLater">Not now</button>' +
+        '</div></div>';
+    document.body.appendChild(wrap);
+    $id('apUpdateGo').addEventListener('click', goUpdate);
+    $id('apInstallGo').addEventListener('click', goInstall);
+    $id('apInstallOk').addEventListener('click', () => { swrite('install_later', '1'); hideInstall(); });
+    $id('apInstallLater').addEventListener('click', () => { swrite('install_later', '1'); hideInstall(); });
+    // The update card can't be waved away; Escape does nothing to it.
+    $id('apUpdateCard').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); } }, true);
+  }
+
+  // A form's error message is brought into view when it appears: on a long
+  // form it sits under the last field, where it was easy to miss, and the
+  // Save button seemed to do nothing.
+  function watchFormErrors(sel) {
+    const seenText = new WeakMap();
+    const look = () => {
+      document.querySelectorAll(sel).forEach((el) => {
+        const t = (el.textContent || '').trim();
+        if (t === (seenText.get(el) || '')) return;
+        seenText.set(el, t);
+        if (!t || el.offsetParent === null) return;
+        try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(false); }
+        el.classList.remove('ap-shake'); void el.offsetWidth; el.classList.add('ap-shake');
+      });
+    };
+    let queued = false;
+    new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; look(); }); } })
+      .observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  function init(cfg) {
+    C = cfg;
+    watchFormErrors(cfg.errorSel || '.form-error, .modal-error');
+    if (/[?&]u=\d+/.test(location.search)) { try { history.replaceState(history.state, '', location.pathname + location.hash); } catch (e) {} }
+    build();
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; scheduleInstall('prompt'); });
+    window.addEventListener('appinstalled', () => { store('installed', '1'); hideInstall(); });
+    if (isIOS() && !standalone()) scheduleInstall('ios');
+    if (standalone()) store('installed', '1');
+
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      // Captured before registering: with no controller this is a first
+      // install, and its handover must not reload a page nobody asked to.
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (wantReload) { reload(); return; }
+        // A worker that takes over by itself (Batch Card Tracker's does):
+        // this page is now the old version.
+        if (hadController) found(null, '');
+      });
+      const register = () => {
+        navigator.serviceWorker.register(C.swUrl || 'sw.js').then((r) => {
+          reg = r;
+          if (r.waiting && hadController) found(r.waiting, '');
+          r.addEventListener('updatefound', () => {
+            const incoming = r.installing;
+            if (!incoming) return;
+            incoming.addEventListener('statechange', () => {
+              if (incoming.state === 'installed' && navigator.serviceWorker.controller) found(incoming, '');
+            });
+          });
+        }).catch(() => {});
+      };
+      if ('requestIdleCallback' in window) requestIdleCallback(register, { timeout: 3000 }); else window.addEventListener('load', register, { once: true });
+    }
+    setInterval(check, C.checkMs || 10 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    setTimeout(check, 8000);
+  }
+
+  return { init: init, check: check, _state: () => ({ updateFound, newVersion, waiting: !!waiting, deferred: !!deferred }) };
+})();
+
 'use strict';
 /* =========================================================================
    ORDERS & DISPATCH — web app (formerly Production Tracker)
@@ -665,7 +1010,7 @@
    app opens at once next time and refreshes behind what is on screen.
    ========================================================================= */
 
-const APP_VERSION = '4.1.1';
+const APP_VERSION = '4.1.2';
 const OD_API_URL = 'https://script.google.com/macros/s/AKfycbx_STLX2W1VDwOsxv3UpdpbPitg2ICXHXtbItWEvesmoQsuBdKO9Eg6KHwSoIZlPeO0CA/exec';
 const STOCK_API_URL = 'https://script.google.com/macros/s/AKfycbzs_aW0G-NvVvs-_Yk41d4esq1lkKVBTzQEQTrbbIKe7kQfoYdXD3cuhd6Wt2UQ6MU0/exec';
 const APP_URL = 'https://calgas.github.io/Production-Tracker/';
@@ -855,7 +1200,14 @@ function openModal(html, opts) {
   $('#modalRoot').appendChild(bg);
   let closed = false;
   const close = (byBack) => { if (closed) return; closed = true; bg.remove(); if (byBack !== true) layerClosed(); if (opts.onClose) opts.onClose(); };
-  bg.addEventListener('mousedown', e => { if (e.target === bg && !opts.sticky) close(); });
+  // A form — anything with a box to type in or pick from — closes only by
+  // its own Cancel or \u2715: never by a click beside it or Escape, and the
+  // phone's Back button leaves it open once something has been typed. A
+  // message or a view still closes either way.
+  bg._isForm = () => !!bg.querySelector('input:not([type=hidden]), textarea, select, canvas');
+  bg.addEventListener('input', () => { bg._dirty = true; }, true);
+  bg.addEventListener('change', () => { bg._dirty = true; }, true);
+  bg.addEventListener('mousedown', e => { if (e.target === bg && !opts.sticky && !bg._isForm()) close(); });
   $$('[data-close]', bg).forEach(b => b.addEventListener('click', close));
   bg._close = close;
   backCloses();
@@ -876,7 +1228,16 @@ window.addEventListener('popstate', () => {
   const d = layerDepth();
   if (layers().length > d) {
     S._deadBack = false;
-    while (layers().length > d) { const l = topLayer(); if (l._close) l._close(true); else l.remove(); }
+    while (layers().length > d) {
+      const l = topLayer();
+      if (l._dirty && l._isForm && l._isForm()) {
+        // Back again on a form with something typed in it: it stays.
+        backCloses();
+        toast('Press Cancel to close this form \u2014 what you typed is still here.');
+        break;
+      }
+      if (l._close) l._close(true); else l.remove();
+    }
     lastHash = location.hash;
     return;
   }
@@ -1629,7 +1990,7 @@ function wire() {
   document.addEventListener('click', e => { if (!e.target.closest('#searchBox')) $('#searchPop').classList.add('hidden'); });
   document.addEventListener('keydown', e => {
     if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); si.focus(); }
-    if (e.key === 'Escape') { const l = topLayer(); if (l) { if (l._close) l._close(); else l.remove(); } }
+    if (e.key === 'Escape') { const l = topLayer(); if (l && !(l._isForm && l._isForm())) { if (l._close) l._close(); else l.remove(); } }
   });
   window.addEventListener('hashchange', render);
   $('#nav').addEventListener('click', e => {
@@ -1708,7 +2069,7 @@ function pickPhoto(m, key) {
    ========================================================================= */
 function openCustomerForm(c, then) {
   const edit = !!c; c = c || {};
-  const f = (key, label, extra) => `<div class="field ${extra && extra.full ? 'full' : ''}"><label for="cu_${key}">${esc(label)}${extra && extra.req ? ' <span class="req">*</span>' : ''}</label>${extra && extra.area ? `<textarea id="cu_${key}" maxlength="500">${esc(c[key] || '')}</textarea>` : `<input id="cu_${key}" value="${esc(c[key] || '')}" maxlength="200" ${extra && extra.attrs || ''}>`}${extra && extra.hint ? `<div class="hint" id="cuh_${key}">${esc(extra.hint)}</div>` : ''}</div>`;
+  const f = (key, label, extra) => `<div class="field ${extra && extra.full ? 'full' : ''}"><label for="cu_${key}">${esc(label)}${extra && extra.req ? ' <span class="req">*</span>' : ''}</label>${extra && extra.area ? `<textarea id="cu_${key}" maxlength="500">${esc(c[key] || '')}</textarea>` : `<input id="cu_${key}" value="${esc(c[key] || '')}" maxlength="200" ${extra && extra.attrs || ''}>`}${extra && extra.hint !== undefined ? `<div class="hint" id="cuh_${key}">${esc(extra.hint)}</div>` : ''}</div>`;
   const sameShip = !c.Ship_Address;
   const m = openModal(modalHead(edit ? 'Edit customer' : 'New customer', edit ? c.Name : 'Add a customer', edit ? c.Customer_ID : 'Their GSTIN fills in the state and PAN.') +
     `<div class="modal-body"><div class="form-grid">
@@ -1731,6 +2092,7 @@ function openCustomerForm(c, then) {
   const g = $('#cu_GSTIN', m.el);
   const onG = () => {
     const v = U(g.value), h = $('#cuh_GSTIN', m.el);
+    if (!h) return;
     if (!v) { h.textContent = ''; return; }
     if (!GSTIN_RE.test(v)) { h.textContent = v.length < 15 ? '' : 'This doesn’t look like a GSTIN.'; h.classList.add('warn'); return; }
     h.classList.remove('warn'); h.textContent = GST_STATES[v.slice(0, 2)] ? GST_STATES[v.slice(0, 2)] + ' · PAN ' + v.slice(2, 12) : '';
@@ -2267,7 +2629,14 @@ ACT['save-settings'] = async (el) => {
   setTheme(document.documentElement.getAttribute('data-theme') || 'light');
   setZoom(currentZoom());
   wire();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Install and update prompts (shared/app-prompts.js); they register the service worker too.
+  AppPrompts.init({
+    name: 'Orders & Dispatch', key: 'od_ap_', version: APP_VERSION,
+    icon: 'https://calgas.github.io/Stock-Management/logo/icon-192.png',
+    perks: ['Opens full-screen, straight from your home screen', 'Starts at once, even on a weak signal', 'Orders, batches and dispatches one tap away'],
+    isReady: () => !!S.session && !$('#appView').classList.contains('hidden'),
+    isBusy: () => layers().some(l => l._isForm && l._isForm())
+  });
   S.session = load(SESSION_KEY, true);
   if (!S.session || !S.session.token) { showLogin(''); return; }
   showSplash();
