@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="app-version" content="4.1.2">
+<meta name="app-version" content="4.1.3">
 <meta name="theme-color" content="#15181d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -51,6 +51,9 @@
     --vh: 100vh;
     --s1: #b5652e; --s2: #c98a3a; --s3: #b9a23c; --s4: #6f9a46; --s5: #3f9e73; --s6: #3e8c97; --s7: #3e6e97; --s8: #6b5fa8;
   }
+  /* Built-in parts of boxes (date-picker icons, spinners, scrollbars) follow the theme. */
+  :root { color-scheme: light; }
+  [data-theme="dark"] { color-scheme: dark; }
   [data-theme="dark"] {
     --paper: #14171c; --panel: #1b2028; --panel-2: #20262f;
     --ink: #eceef2; --ink-soft: #a9afba; --ink-faint: #6b7280;
@@ -517,6 +520,13 @@
   .b-azure { background: var(--azure-soft); color: var(--azure); }
   .lines-tbl td, .lines-tbl th { padding: 6px; vertical-align: middle; }
   .lines-tbl input, .lines-tbl select { width: 100%; min-width: 0; }
+  /* The boxes on an order's or dispatch's item lines look like every other box (4.1.3). */
+  .lines-tbl input:not([type=checkbox]):not([type=hidden]), .lines-tbl select {
+    min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background-color: var(--panel-2); color: var(--ink);
+    font-size: 14px; transition: border-color .15s, box-shadow .15s; }
+  .lines-tbl input:focus, .lines-tbl select:focus { outline: none; border-color: var(--copper); box-shadow: 0 0 0 3px var(--copper-soft); background-color: var(--panel); }
+  .lines-tbl input[readonly] { background-color: var(--line-soft); color: var(--ink-soft); }
+  .lines-tbl .hint { margin-top: 4px; }
   .lines-tbl .num input { text-align: right; }
   .kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 13.5px; }
   .kv small { color: var(--ink-soft); }
@@ -1010,7 +1020,7 @@ const AppPrompts = (function () {
    app opens at once next time and refreshes behind what is on screen.
    ========================================================================= */
 
-const APP_VERSION = '4.1.2';
+const APP_VERSION = '4.1.3';
 const OD_API_URL = 'https://script.google.com/macros/s/AKfycbx_STLX2W1VDwOsxv3UpdpbPitg2ICXHXtbItWEvesmoQsuBdKO9Eg6KHwSoIZlPeO0CA/exec';
 const STOCK_API_URL = 'https://script.google.com/macros/s/AKfycbzs_aW0G-NvVvs-_Yk41d4esq1lkKVBTzQEQTrbbIKe7kQfoYdXD3cuhd6Wt2UQ6MU0/exec';
 const APP_URL = 'https://calgas.github.io/Production-Tracker/';
