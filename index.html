@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="app-version" content="4.1.0">
+<meta name="app-version" content="4.1.1">
 <meta name="theme-color" content="#15181d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -114,6 +114,19 @@
   .field .unit { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--ink-faint); font-weight: 600; pointer-events: none; }
   .field .auto { min-height: 42px; padding: 10px 12px; border-radius: 10px; background: var(--line-soft); color: var(--ink-soft); font-weight: 600; font-family: var(--mono); font-size: 13px; }
   .hint { font-size: 12px; color: var(--ink-faint); }
+  /* Boxes with a list to pick from: the list under the box (see sugOpen) */
+  .sug-in { padding-right: 34px !important; cursor: text;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6.5L8 10.5L12 6.5' stroke='%23949ca6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important; background-position: right 11px center !important; background-size: 15px !important; }
+  .sug-pop { position: fixed; z-index: 95; overflow-y: auto; overscroll-behavior: contain; padding: 4px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-lift); }
+  .sug-it { padding: 7px 10px; border-radius: 7px; cursor: pointer; line-height: 1.3; color: var(--ink); }
+  .sug-it b { display: block; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+  .sug-it small { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
+  .sug-it:hover { background: var(--hover); }
+  .sug-it.on { background: var(--copper-soft); }
+  .sug-it.on b { color: var(--copper); }
+  .sug-none { padding: 10px 12px; font-size: 12.5px; color: var(--ink-faint); }
   .field .hint:not(:empty) { margin-top: 4px; }
   .hint.warn { color: #a07617; font-weight: 600; background: var(--warn-soft); padding: 5px 8px; border-radius: 7px; }
   .linkish { color: var(--copper); font-weight: 700; text-decoration: underline; padding: 0 2px; font-size: inherit; }
@@ -362,6 +375,7 @@
   .modal-head h3 { margin: 2px 0 0; font-size: 18px; } .modal-head p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-soft); }
   .modal-head .icon-btn { margin-left: auto; }
   .modal-body { padding: 18px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .modal-body > * { flex-shrink: 0; }
   .modal-foot { padding: 14px 22px; border-top: 1px solid var(--line-soft); display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
   .modal-foot .grow { flex: 1; }
   .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -651,7 +665,7 @@
    app opens at once next time and refreshes behind what is on screen.
    ========================================================================= */
 
-const APP_VERSION = '4.1.0';
+const APP_VERSION = '4.1.1';
 const OD_API_URL = 'https://script.google.com/macros/s/AKfycbx_STLX2W1VDwOsxv3UpdpbPitg2ICXHXtbItWEvesmoQsuBdKO9Eg6KHwSoIZlPeO0CA/exec';
 const STOCK_API_URL = 'https://script.google.com/macros/s/AKfycbzs_aW0G-NvVvs-_Yk41d4esq1lkKVBTzQEQTrbbIKe7kQfoYdXD3cuhd6Wt2UQ6MU0/exec';
 const APP_URL = 'https://calgas.github.io/Production-Tracker/';
@@ -956,6 +970,144 @@ function pullToRefresh(c) {
     ind.className = 'ptr back'; ind.style.transform = 'translateY(-48px)'; ind.style.opacity = 0;
   });
 }
+
+/* ---------- Boxes with a list to pick from (type to search) ----------
+   A box with list= (a <datalist>) gets the browser's own suggestion list,
+   which some browsers draw away from the box (top of the screen, far right)
+   and none let us style. Every such box gets this list instead: right under
+   the box (or above it near the bottom of the screen), filtering on any part
+   of the text as you type, ↑ ↓ and Enter to pick, Esc to close. The
+   <datalist> stays the source of the choices, so code that fills it later
+   still works. */
+const SUG = { panel: null, input: null, items: [], idx: -1, picking: false };
+function sugAdopt(input) {
+  if (input.dataset.sug !== undefined || !input.getAttribute('list')) return;
+  input.dataset.sug = input.getAttribute('list');
+  input.removeAttribute('list');
+  input.setAttribute('autocomplete', 'off');
+  input.setAttribute('role', 'combobox');
+  input.setAttribute('aria-autocomplete', 'list');
+  input.setAttribute('aria-expanded', 'false');
+  input.setAttribute('aria-controls', 'sugPop');
+  input.classList.add('sug-in');
+}
+function sugAdoptAll(root) { (root.querySelectorAll ? Array.from(root.querySelectorAll('input[list]')) : []).forEach(sugAdopt); if (root.matches && root.matches('input[list]')) sugAdopt(root); }
+function sugOptions(input) {
+  const dl = document.getElementById(input.dataset.sug);
+  if (!dl) return [];
+  return Array.from(dl.querySelectorAll('option')).map(o => {
+    const v = (o.getAttribute('value') !== null ? o.getAttribute('value') : o.textContent).trim();
+    const txt = (o.getAttribute('label') || o.textContent || '').trim();
+    return { v, t: txt && txt !== v ? txt : '' };
+  }).filter(o => o.v);
+}
+function sugPanel() {
+  if (SUG.panel) return SUG.panel;
+  const p = document.createElement('div');
+  p.className = 'sug-pop'; p.id = 'sugPop'; p.setAttribute('role', 'listbox'); p.style.display = 'none';
+  p.addEventListener('mousedown', e => e.preventDefault());          // keep the typing in the box
+  p.addEventListener('click', e => { const it = e.target.closest('[data-i]'); if (it) sugPick(Number(it.dataset.i)); });
+  document.body.appendChild(p);
+  return (SUG.panel = p);
+}
+function sugOpen(input, showAll) {
+  if (input.readOnly || input.disabled) return;
+  const opts = sugOptions(input);
+  if (!opts.length) { sugClose(); return; }
+  SUG.input = input;
+  const q = input.value.trim().toUpperCase();
+  const exact = opts.findIndex(o => o.v.toUpperCase() === q);
+  let list = opts;
+  if (q && !showAll && exact < 0) {
+    list = opts.filter(o => (o.v + ' ' + o.t).toUpperCase().indexOf(q) > -1);
+    list.sort((a, b) => (a.v.toUpperCase().indexOf(q) === 0 ? 0 : 1) - (b.v.toUpperCase().indexOf(q) === 0 ? 0 : 1));
+  }
+  SUG.items = list.slice(0, 400);
+  SUG.idx = exact > -1 && list === opts ? exact : (q && list.length ? 0 : -1);
+  const p = sugPanel();
+  p.innerHTML = SUG.items.length
+    ? SUG.items.map((o, i) => `<div class="sug-it${i === SUG.idx ? ' on' : ''}" role="option" id="sugOpt${i}" data-i="${i}" aria-selected="${i === SUG.idx}"><b>${esc(o.v)}</b>${o.t ? `<small>${esc(o.t)}</small>` : ''}</div>`).join('')
+    : '<div class="sug-none">Nothing matches “' + esc(input.value.trim()) + '”.</div>';
+  p.style.display = 'block';
+  input.setAttribute('aria-expanded', 'true');
+  sugPlace();
+  sugShow();
+}
+function sugClose() {
+  if (SUG.panel) SUG.panel.style.display = 'none';
+  if (SUG.input) SUG.input.setAttribute('aria-expanded', 'false');
+  SUG.input = null; SUG.items = []; SUG.idx = -1;
+}
+function sugIsOpen() { return !!(SUG.panel && SUG.panel.style.display === 'block' && SUG.input); }
+// Positions are measured on screen but set in CSS pixels; the app's zoom
+// can make those differ, so the ratio is measured rather than assumed.
+function sugPlace() {
+  const input = SUG.input, p = SUG.panel;
+  if (!input || !p) return;
+  if (!input.isConnected) { sugClose(); return; }
+  const r = input.getBoundingClientRect();
+  if (!r.width) { sugClose(); return; }
+  p.style.left = '100px'; p.style.top = '0px'; p.style.maxHeight = 'none';
+  const k = (p.getBoundingClientRect().left / 100) || 1;
+  const below = window.innerHeight - r.bottom - 10, above = r.top - 10;
+  const up = below < 220 && above > below;
+  const room = Math.max(120, Math.min(320, up ? above : below));
+  const width = Math.max(r.width, 220);
+  const left = Math.max(6, Math.min(r.left, window.innerWidth - width - 6));
+  p.style.width = (width / k) + 'px';
+  p.style.left = (left / k) + 'px';
+  p.style.maxHeight = (room / k) + 'px';
+  const h = Math.min(p.scrollHeight * k, room);
+  p.style.top = ((up ? r.top - 4 - h : r.bottom + 4) / k) + 'px';
+}
+function sugShow() {
+  if (!SUG.panel) return;
+  $$('.sug-it', SUG.panel).forEach((el, i) => { el.classList.toggle('on', i === SUG.idx); el.setAttribute('aria-selected', i === SUG.idx ? 'true' : 'false'); });
+  const on = SUG.panel.querySelector('.sug-it.on');
+  if (on) { on.scrollIntoView({ block: 'nearest' }); if (SUG.input) SUG.input.setAttribute('aria-activedescendant', on.id); }
+}
+function sugPick(i) {
+  const o = SUG.items[i], input = SUG.input;
+  if (!o || !input) return;
+  input.value = o.v;
+  sugClose();
+  SUG.picking = true;
+  try { input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); }
+  finally { SUG.picking = false; }
+}
+(function () {
+  const isSug = (t) => t && t.tagName === 'INPUT' && t.dataset && t.dataset.sug !== undefined;
+  const start = () => {
+    sugAdoptAll(document.body);
+    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) sugAdoptAll(n); }))).observe(document.body, { childList: true, subtree: true });
+  };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  document.addEventListener('click', e => {
+    if (isSug(e.target) && !(sugIsOpen() && SUG.input === e.target)) sugOpen(e.target, true);
+  });
+  document.addEventListener('input', e => { if (isSug(e.target) && !SUG.picking) sugOpen(e.target); });
+  document.addEventListener('keydown', e => {
+    if (!isSug(e.target)) return;
+    const open = sugIsOpen() && SUG.input === e.target;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) { sugOpen(e.target, true); return; }
+      const n = SUG.items.length;
+      if (!n) return;
+      SUG.idx = e.key === 'ArrowDown' ? (SUG.idx + 1) % n : (SUG.idx <= 0 ? n - 1 : SUG.idx - 1);
+      sugShow();
+    } else if (e.key === 'Enter' && open && SUG.idx > -1) {
+      e.preventDefault(); e.stopPropagation(); sugPick(SUG.idx);
+    } else if (e.key === 'Escape' && open) {
+      e.preventDefault(); e.stopPropagation(); sugClose();
+    } else if (e.key === 'Tab' && open) {
+      sugClose();
+    }
+  }, true);
+  document.addEventListener('focusout', e => { if (SUG.input && e.target === SUG.input) sugClose(); });
+  window.addEventListener('resize', () => { if (sugIsOpen()) sugPlace(); });
+  document.addEventListener('scroll', e => { if (sugIsOpen() && !(SUG.panel && SUG.panel.contains(e.target))) sugPlace(); }, true);
+})();
 
 /* =========================================================================
    INDEX — lookups and the figures every page uses
@@ -1511,7 +1663,7 @@ function stateCode(gstin, stateName) {
 function stateOptions(cur) {
   const names = Object.keys(GST_STATES).map(k => GST_STATES[k]);
   if (cur && names.indexOf(cur) === -1) names.push(cur);
-  return '<option value="">—</option>' + names.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  return '<option value="" hidden>Select state</option>' + names.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('');
 }
 function val(m, id) { const el = $('#' + id, m.el); return el ? el.value.trim() : ''; }
 function fgDatalist() { return `<datalist id="fgList">${S.D.fg.map(f => `<option value="${esc(f.code)}">${esc(f.name)}</option>`).join('')}</datalist>`; }
@@ -1620,7 +1772,7 @@ function openOrderForm(o) {
   const custs = S.D.customers.filter(c => c.Active !== false || (o && c.Customer_ID === o.Customer_ID)).sort((a, b) => String(a.Name).localeCompare(String(b.Name)));
   const m = openModal(modalHead(edit ? 'Edit order' : 'New order', edit ? o.Order_No : 'Enter a customer order', edit ? esc(o.Customer_Name) : 'The order number is given when you save.') +
     `<div class="modal-body">${fgDatalist()}<div class="form-grid">
-      <div class="field full"><label for="ofCust">Customer <span class="req">*</span></label><div style="display:flex;gap:8px"><select id="ofCust" style="flex:1"><option value="">— Choose</option>${custs.map(c => `<option value="${esc(c.Customer_ID)}" ${o && o.Customer_ID === c.Customer_ID ? 'selected' : ''}>${esc(c.Name)}${c.Bill_City ? ' · ' + esc(c.Bill_City) : ''}</option>`).join('')}</select>
+      <div class="field full"><label for="ofCust">Customer <span class="req">*</span></label><div style="display:flex;gap:8px"><select id="ofCust" style="flex:1"><option value="" hidden>Select customer</option>${custs.map(c => `<option value="${esc(c.Customer_ID)}" ${o && o.Customer_ID === c.Customer_ID ? 'selected' : ''}>${esc(c.Name)}${c.Bill_City ? ' · ' + esc(c.Bill_City) : ''}</option>`).join('')}</select>
         ${S.D.can.customers || S.D.can.orders ? `<button type="button" class="btn btn-ghost" id="ofNewCust">${ico('plus')}New</button>` : ''}</div><div class="hint" id="ofCustHint"></div></div>
       <div class="field"><label for="ofDate">Order date</label><input id="ofDate" type="date" value="${isoDay(o ? o.Order_Date : Date.now())}"></div>
       <div class="field"><label for="ofDue">Needed by</label><input id="ofDue" type="date" value="${isoDay(o && o.Required_By)}"></div>
@@ -1809,7 +1961,7 @@ function openDispatchForm(pre) {
   const custs = S.D.customers.filter(c => c.Active !== false).sort((a, b) => String(a.Name).localeCompare(String(b.Name)));
   const m = openModal(modalHead('New dispatch', 'Dispatch goods', 'Batches for the order go first, then stock batches, oldest first. The serial numbers follow.') +
     `<div class="modal-body">${fgDatalist()}<div class="form-grid">
-      <div class="field"><label for="dfCust">Customer <span class="req">*</span></label><select id="dfCust"><option value="">— Choose</option>${custs.map(c => `<option value="${esc(c.Customer_ID)}" ${preOrder && preOrder.Customer_ID === c.Customer_ID ? 'selected' : ''}>${esc(c.Name)}</option>`).join('')}</select></div>
+      <div class="field"><label for="dfCust">Customer <span class="req">*</span></label><select id="dfCust"><option value="" hidden>Select customer</option>${custs.map(c => `<option value="${esc(c.Customer_ID)}" ${preOrder && preOrder.Customer_ID === c.Customer_ID ? 'selected' : ''}>${esc(c.Name)}</option>`).join('')}</select></div>
       <div class="field"><label for="dfOrder">Against order</label><select id="dfOrder"></select></div>
       <div class="field"><label for="dfDate">Dispatch date</label><input id="dfDate" type="date" value="${isoDay(Date.now())}"></div>
     </div>
@@ -1832,7 +1984,7 @@ function openDispatchForm(pre) {
     const c = S.by.cust[$('#dfCust', m.el).value] || {};
     const orders = S.D.orders.filter(o => o.Customer_ID === c.Customer_ID && isOpen(o));
     const sel = $('#dfOrder', m.el);
-    sel.innerHTML = '<option value="">— Without an order</option>' + orders.map(o => `<option value="${esc(o.Order_No)}">${esc(o.Order_No)}${o.Customer_PO ? ' · PO ' + esc(o.Customer_PO) : ''}${o.Required_By ? ' · by ' + day(o.Required_By) : ''}</option>`).join('');
+    sel.innerHTML = '<option value="">Without an order</option>' + orders.map(o => `<option value="${esc(o.Order_No)}">${esc(o.Order_No)}${o.Customer_PO ? ' · PO ' + esc(o.Customer_PO) : ''}${o.Required_By ? ' · by ' + day(o.Required_By) : ''}</option>`).join('');
     sel.value = preOrder && orders.some(o => o.Order_No === preOrder.Order_No) ? preOrder.Order_No : orders.length === 1 ? orders[0].Order_No : '';
     if (c.Transporter && !$('#tf_Transporter', m.el).value) $('#tf_Transporter', m.el).value = c.Transporter;
     if (c.Payment_Terms && !$('#tf_Terms', m.el).value) $('#tf_Terms', m.el).value = c.Payment_Terms;
