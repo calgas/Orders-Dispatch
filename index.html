@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="app-version" content="4.1.3">
+<meta name="app-version" content="4.1.4">
 <meta name="theme-color" content="#15181d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -104,7 +104,7 @@
   .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .field > label, .label { font-size: 11.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em; }
   .field .req { color: var(--bad); }
-  .input, .field input:not([type=checkbox]):not([type=file]), .field select, .field textarea {
+  .input, .field input:not([type=checkbox]):not([type=radio]):not([type=file]), .field select, .field textarea {
     width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
     font-size: 14.5px; transition: border-color .15s, box-shadow .15s; }
   .field textarea { min-height: 70px; resize: vertical; }
@@ -131,6 +131,13 @@
   .sug-it.on b { color: var(--copper); }
   .sug-none { padding: 10px 12px; font-size: 12.5px; color: var(--ink-faint); }
   .field .hint:not(:empty) { margin-top: 4px; }
+  .rc-how, .rc-entries { display: grid; gap: 6px; }
+  .rc-entries { max-height: 240px; overflow-y: auto; }
+  .rc-opt { display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-weight: 400; }
+  .rc-opt:has(input:checked) { border-color: var(--ink); background: var(--panel-2, rgba(0,0,0,.03)); }
+  .rc-opt input[type=radio] { margin: 3px 0 0; flex: none; width: 16px; height: 16px; accent-color: var(--copper); }
+  .rc-opt > span { flex: 1; min-width: 0; }
+  .rc-opt small { display: block; color: var(--ink-faint); font-size: 12px; margin-top: 2px; line-height: 1.35; }
   .hint.warn { color: #a07617; font-weight: 600; background: var(--warn-soft); padding: 5px 8px; border-radius: 7px; }
   .linkish { color: var(--copper); font-weight: 700; text-decoration: underline; padding: 0 2px; font-size: inherit; }
   .af { margin-left: 7px; padding: 1px 7px; border-radius: 99px; background: var(--azure-soft); color: var(--azure); font-size: 10.5px; font-weight: 700; letter-spacing: 0; text-transform: none; vertical-align: 1px; white-space: nowrap; }
@@ -1020,7 +1027,7 @@ const AppPrompts = (function () {
    app opens at once next time and refreshes behind what is on screen.
    ========================================================================= */
 
-const APP_VERSION = '4.1.3';
+const APP_VERSION = '4.1.4';
 const OD_API_URL = 'https://script.google.com/macros/s/AKfycbx_STLX2W1VDwOsxv3UpdpbPitg2ICXHXtbItWEvesmoQsuBdKO9Eg6KHwSoIZlPeO0CA/exec';
 const STOCK_API_URL = 'https://script.google.com/macros/s/AKfycbzs_aW0G-NvVvs-_Yk41d4esq1lkKVBTzQEQTrbbIKe7kQfoYdXD3cuhd6Wt2UQ6MU0/exec';
 const APP_URL = 'https://calgas.github.io/Production-Tracker/';
@@ -1046,6 +1053,9 @@ function ico(name, cls) { return `<svg class="icon ${cls || ''}"><use href="#i-$
 function num(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
 function fmtNum(v) { return v === '' || v === null || v === undefined ? '—' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 4 }); }
 function pct(a, b) { return b ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
+// A–Z, with numbers in order (2 before 10), ignoring case.
+const AZ = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+function azCmp(a, b) { return AZ.compare(String(a === null || a === undefined ? '' : a), String(b === null || b === undefined ? '' : b)); }
 function uuid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); }
 function dt(v, withTime) {
   if (!v) return '';
@@ -1565,6 +1575,9 @@ function progBar(t) {
 const LEGEND = '<div class="legend"><span><i style="background:var(--ok)"></i>Dispatched</span><span><i style="background:var(--azure)"></i>In stores</span><span><i style="background:var(--warn)"></i>In production</span><span><i style="background:var(--line-soft)"></i>To make</span></div>';
 function badge(s) { return `<span class="badge ${s.cls}">${esc(s.label)}</span>${s.late ? ' <span class="badge b-bad">Late</span>' : ''}`; }
 // Batches Stores can receive: passed Final Audit, not received yet.
+// A receipt still to be booked into FG stock: not undone, not booked, and not
+// one whose goods were booked by hand before (Already in stock).
+function needsBooking(r) { return r.Status === 'Received' && !r.Stock_Txn && r.Already_In_Stock !== 'Yes'; }
 function waitingBatches() { return S.D.batches.filter(b => b.Audited && !S.by.receiptOfBatch[U(b.Batch_No)]).sort((a, b) => num(a.Done_At) - num(b.Done_At)); }
 // What each receipt still has in stores.
 function storesPool() {
@@ -1612,7 +1625,7 @@ function parseRoute() {
   return { page: known.indexOf(page) > -1 ? page : 'overview' };
 }
 function navCounts() {
-  return { wait: waitingBatches().length, unposted: S.D.receipts.filter(r => r.Status === 'Received' && !r.Stock_Txn).length +
+  return { wait: waitingBatches().length, unposted: S.D.receipts.filter(needsBooking).length +
     S.D.dispatches.filter(d => d.Status === 'Dispatched' && (S.by.dlines[d.Dispatch_No] || []).some(l => !l.Stock_Txn)).length,
     late: S.D.orders.filter(o => { const s = orderState(o); return s.open && s.late; }).length };
 }
@@ -1806,7 +1819,7 @@ function renderReceive() {
   setTitle('Stores', 'Stores');
   if (location.hash.indexOf('?stores') > -1) { S.view.receiveFilter = 'stores'; history.replaceState(null, '', '#/receive'); }
   const v = S.view, can = S.D.can, wait = waitingBatches(), pool = storesPool();
-  const unposted = S.D.receipts.filter(r => r.Status === 'Received' && !r.Stock_Txn);
+  const unposted = S.D.receipts.filter(needsBooking);
   const segs = [['waiting', 'Waiting', wait.length], ['stores', 'In stores', pool.length], ['history', 'Received', S.D.receipts.length]];
   let body;
   if (v.receiveFilter === 'stores') {
@@ -1819,7 +1832,7 @@ function renderReceive() {
     const list = S.D.receipts.slice().sort((a, b) => num(b.Received_At) - num(a.Received_At)).slice(0, 300);
     body = `<div class="card tbl-wrap"><table class="tbl"><thead><tr><th>Receipt</th><th>Batch</th><th>Item</th><th class="num">Qty</th><th>Serials</th><th>For</th><th>By</th><th>When</th><th>Stock entry</th></tr></thead><tbody>${list.map(r =>
       `<tr style="${r.Status !== 'Received' ? 'opacity:.55' : ''}"><td class="mono">${esc(r.Receipt_ID)}</td><td>${bctLink(r.Batch_No)}</td><td class="mono">${esc(r.FG_Code)}</td><td class="num">${fmtNum(r.Qty)}</td><td class="serials">${esc(r.Serial_From ? r.Serial_From + '–' + r.Serial_To : '')}</td>
-        <td>${esc(r.Order_No || 'Stock')}</td><td>${esc(nameOf(r.Received_By))}</td><td>${dt(r.Received_At)}</td><td>${r.Status !== 'Received' ? '<span class="badge b-muted">Undone</span> ' + esc(r.Undo_Reason || '') : r.Stock_Txn ? '<span class="mono">' + esc(r.Stock_Txn) + '</span>' : `<button class="btn btn-soft-bad btn-sm" data-act="post-receipt" data-r="${esc(r.Receipt_ID)}">Book into stock</button>`}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">Nothing received yet.</td></tr>'}</tbody></table></div>`;
+        <td>${esc(r.Order_No || 'Stock')}</td><td>${esc(nameOf(r.Received_By))}</td><td>${dt(r.Received_At)}</td><td>${r.Status !== 'Received' ? '<span class="badge b-muted">Undone</span> ' + esc(r.Undo_Reason || '') : r.Stock_Txn ? '<span class="mono">' + esc(r.Stock_Txn) + '</span>' : r.Already_In_Stock === 'Yes' ? `<span class="badge b-muted" title="${esc(r.Remarks || '')}">Already in stock</span>${r.Linked_Txn ? ' <span class="mono">' + esc(r.Linked_Txn) + '</span>' : ''}` : `<button class="btn btn-soft-bad btn-sm" data-act="post-receipt" data-r="${esc(r.Receipt_ID)}">Book into stock</button>`}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">Nothing received yet.</td></tr>'}</tbody></table></div>`;
   } else {
     body = wait.length ? `<div class="card tbl-wrap"><table class="tbl"><thead><tr><th>Batch</th><th>Item</th><th class="num">Passed Final Audit</th><th>Serials</th><th class="num">Boxes</th><th>For</th><th>Finished</th><th></th></tr></thead><tbody>${wait.map(b =>
       `<tr><td>${bctLink(b.Batch_No)}</td><td><b class="mono">${esc(b.FG_Code || b.Part_Code)}</b><small class="muted" style="display:block">${esc(b.Product_Name)}</small>${!b.FG_Code ? '<small style="color:var(--bad);display:block">No Stock FG code on this product</small>' : ''}</td>
@@ -1828,7 +1841,7 @@ function renderReceive() {
         <td>${can.receive ? `<button class="btn btn-primary btn-sm" data-act="receive" data-b="${esc(b.Batch_No)}">${ico('store')}Receive</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`
       : '<div class="card empty"><div class="big">✅</div>No finished batches are waiting.</div>';
   }
-  return `<div class="page-head"><div><p style="margin:0">Batches arrive here after Final Audit in Batch Card Tracker. Receiving one books it into FG stock in Stock Management.</p></div></div>
+  return `<div class="page-head"><div><p style="margin:0">Batches arrive here after Final Audit in Batch Card Tracker. Receiving one books it into FG stock in Stock Management — or, for a batch whose goods were entered there by hand before, records it as already in stock.</p></div></div>
     ${unposted.length ? `<div class="note warn" style="margin-bottom:12px">${plural(unposted.length, 'receipt')} not booked into FG stock yet — see Received.</div>` : ''}
     <div class="toolbar"><div class="seg">${segs.map(s => `<button class="${v.receiveFilter === s[0] ? 'on' : ''}" data-act="rfilter" data-v="${s[0]}">${s[1]} <span class="faint">${s[2]}</span></button>`).join('')}</div></div>${body}`;
 }
@@ -2034,10 +2047,11 @@ function stateCode(gstin, stateName) {
 function stateOptions(cur) {
   const names = Object.keys(GST_STATES).map(k => GST_STATES[k]);
   if (cur && names.indexOf(cur) === -1) names.push(cur);
+  names.sort(azCmp);
   return '<option value="" hidden>Select state</option>' + names.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('');
 }
 function val(m, id) { const el = $('#' + id, m.el); return el ? el.value.trim() : ''; }
-function fgDatalist() { return `<datalist id="fgList">${S.D.fg.map(f => `<option value="${esc(f.code)}">${esc(f.name)}</option>`).join('')}</datalist>`; }
+function fgDatalist() { return `<datalist id="fgList">${S.D.fg.slice().sort((a, b) => azCmp(a.code, b.code)).map(f => `<option value="${esc(f.code)}">${esc(f.name)}</option>`).join('')}</datalist>`; }
 // Stock Management's half of a receipt or dispatch. Safe to repeat: it posts once.
 async function stockMove(kind, id) {
   let last;
@@ -2141,7 +2155,7 @@ function lastRate(custId, code) {
 }
 function openOrderForm(o) {
   const edit = !!o;
-  const custs = S.D.customers.filter(c => c.Active !== false || (o && c.Customer_ID === o.Customer_ID)).sort((a, b) => String(a.Name).localeCompare(String(b.Name)));
+  const custs = S.D.customers.filter(c => c.Active !== false || (o && c.Customer_ID === o.Customer_ID)).sort((a, b) => azCmp(a.Name, b.Name));
   const m = openModal(modalHead(edit ? 'Edit order' : 'New order', edit ? o.Order_No : 'Enter a customer order', edit ? esc(o.Customer_Name) : 'The order number is given when you save.') +
     `<div class="modal-body">${fgDatalist()}<div class="form-grid">
       <div class="field full"><label for="ofCust">Customer <span class="req">*</span></label><div style="display:flex;gap:8px"><select id="ofCust" style="flex:1"><option value="" hidden>Select customer</option>${custs.map(c => `<option value="${esc(c.Customer_ID)}" ${o && o.Customer_ID === c.Customer_ID ? 'selected' : ''}>${esc(c.Name)}${c.Bill_City ? ' · ' + esc(c.Bill_City) : ''}</option>`).join('')}</select>
@@ -2238,44 +2252,92 @@ function openOrderForm(o) {
    STORES
    ========================================================================= */
 function lineOptions(code, cur, withStock) {
-  const lines = S.D.orders.filter(isOpen).flatMap(o => openLines(o.Order_No).filter(l => U(l.FG_Code) === U(code)).map(l => ({ l, o })));
+  const lines = S.D.orders.filter(isOpen).sort((a, b) => azCmp(a.Order_No, b.Order_No)).flatMap(o => openLines(o.Order_No).filter(l => U(l.FG_Code) === U(code)).map(l => ({ l, o })));
   return (withStock ? `<option value="">Stock (no order)</option>` : '') + lines.map(z => `<option value="${esc(z.l.Line_ID)}" ${z.l.Line_ID === cur ? 'selected' : ''}>${esc(z.o.Order_No)} · ${esc(z.o.Customer_Name)} · ${fmtNum(S.by.use[z.l.Line_ID].left)} to dispatch</option>`).join('');
 }
 ACT.receive = (el) => withFresh(() => openReceiveForm(el.dataset.b));
 function openReceiveForm(batchNo) {
   const b = S.by.batch[U(batchNo)];
   if (!b) return;
+  // A batch from before the apps (AppSheet) may have been booked into FG
+  // stock by hand already: Stores says which, nothing is pre-picked.
+  const older = /appsheet/i.test(b.Source || '');
   const m = openModal(modalHead('Receive into stores', b.Batch_No, esc(b.Product_Name || b.Part_Code) + ' · passed Final Audit ' + (b.Done_At ? ago(b.Done_At) : '')) +
-    `<div class="modal-body">${!b.FG_Code ? `<div class="note bad">No Stock Management FG code on ${esc(b.Part_Code)}. Set “Stock FG code” on the product in Batch Card Tracker (Dropdowns → Products), then refresh.</div>` : ''}
-      <div class="kv" style="margin-bottom:14px"><small>Item</small><div class="mono">${esc(b.FG_Code || '—')}</div><small>Passed Final Audit</small><div><b>${fmtNum(b.Final_Good)}</b>${b.Boxes ? ' in ' + plural(num(b.Boxes), 'box', 'boxes') : ''}</div>
+    `<div class="modal-body">
+      <div class="kv" style="margin-bottom:14px"><small>Passed Final Audit</small><div><b>${fmtNum(b.Final_Good)}</b>${b.Boxes ? ' in ' + plural(num(b.Boxes), 'box', 'boxes') : ''}</div>
         <small>Batch card</small><div>${bctLink(b.Batch_No, 'Open in Batch Card Tracker')}</div></div>
       <div class="form-grid">
+        <div class="field full"><label for="rcItem">FG item <span class="req">*</span>${b.FG_Code ? '<span class="af">Product’s Stock FG code</span>' : ''}</label>
+          ${b.FG_Code ? `<input id="rcItem" class="mono" value="${esc(b.FG_Code)}" readonly>` : `<input id="rcItem" list="fgList" class="mono" placeholder="Type to search items" autocomplete="off" style="text-transform:uppercase">${fgDatalist()}`}
+          <div class="hint" id="rcItemHint">${b.FG_Code ? esc(fgName(b.FG_Code)) : `${esc(b.Part_Code)} has no Stock FG code. Pick the item here, or set “Stock FG code” on the product in Batch Card Tracker (Dropdowns → Products) so its batches pick it up.`}</div></div>
+        <div class="field full"><label>Into FG stock <span class="req">*</span></label>
+          <div class="rc-how" role="radiogroup">
+            <label class="rc-opt"><input type="radio" name="rcHow" value="book" ${older ? '' : 'checked'}><span><b>Book into stock now</b><small>Adds the quantity to FG stock in Stock Management.</small></span></label>
+            <label class="rc-opt"><input type="radio" name="rcHow" value="already"><span><b>Already in stock (booked before)</b><small>Its goods were entered in Stock Management by hand. Records the batch here for dispatch; nothing is added again.</small></span></label>
+          </div>
+          ${older ? '<div class="note warn" style="margin-top:8px">Batch from the AppSheet app — check whether its goods were already booked into FG stock before choosing.</div>' : ''}</div>
+        <div class="field full" id="rcEntriesBox" hidden><label>Which stock entry was it? <span class="muted" style="font-weight:400">(entries for this item not booked by the apps)</span></label><div id="rcEntries" class="rc-entries"></div></div>
         <div class="field"><label for="rcQty">Quantity received <span class="req">*</span><span class="af">Final Audit</span></label><input id="rcQty" type="number" inputmode="numeric" min="1" step="1" value="${esc(b.Final_Good)}"></div>
         <div class="field"><label for="rcFor">For</label><select id="rcFor">${lineOptions(b.FG_Code, b.Line_ID, true)}</select></div>
         <div class="field"><label for="rcFrom">Serial no. from${b.Serial_From ? '<span class="af">Testing &amp; Packing</span>' : ''}</label><input id="rcFrom" class="mono" style="text-transform:uppercase" value="${esc(b.Serial_From)}" maxlength="30"></div>
         <div class="field"><label for="rcTo">Serial no. to</label><input id="rcTo" class="mono" style="text-transform:uppercase" value="${esc(b.Serial_To)}" maxlength="30"><div class="hint" id="rcSerialHint"></div></div>
         <div class="field full"><label for="rcRemarks">Remarks <span class="muted" id="rcRemReq" style="font-weight:400"></span></label><input id="rcRemarks" maxlength="300"></div>
       </div><div class="form-error" id="rcErr"></div></div>
-    <div class="modal-foot"><button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="rcSave" ${b.FG_Code ? '' : 'disabled'}>${ico('store')}Receive and book into stock</button></div>`);
+    <div class="modal-foot"><button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="rcSave">${ico('store')}<span id="rcSaveText">Receive and book into stock</span></button></div>`);
+  const how = () => { const r = $('input[name="rcHow"]:checked', m.el); return r ? r.value : ''; };
+  const item = () => S.by.fg[U(val(m, 'rcItem'))] || null;
+  let entriesFor = null, entries = [];
+  const loadEntries = async () => {
+    const f = item(), box = $('#rcEntries', m.el);
+    if (!f) { box.innerHTML = '<div class="hint">Pick the FG item first.</div>'; return; }
+    if (entriesFor === f.code) return;
+    entriesFor = f.code; entries = [];
+    box.innerHTML = '<div class="hint">Looking up stock entries…</div>';
+    try {
+      const d = await api('getStockEntries', { fgCode: f.code });
+      if (entriesFor !== f.code) return;
+      entries = d.entries || [];
+      const q = num(val(m, 'rcQty'));
+      const best = entries.find(x => x.Qty === q);
+      box.innerHTML = entries.map(x => `<label class="rc-opt"><input type="radio" name="rcTxn" value="${esc(x.TxnID)}" ${best === x ? 'checked' : ''}><span><b class="mono">${esc(x.TxnID)}</b> · ${fmtNum(x.Qty)} · ${esc(x.TxnType)}${x.Department ? ' · ' + esc(x.Department) : ''}<small>${x.Date ? dt(x.Date) : ''}${x.EnteredBy ? ' by ' + esc(nameOf(x.EnteredBy)) : ''}${x.Reference ? ' · ref ' + esc(x.Reference) : ''}${x.Remarks ? ' · ' + esc(x.Remarks) : ''}</small></span></label>`).join('') +
+        `<label class="rc-opt"><input type="radio" name="rcTxn" value="" ${best ? '' : 'checked'}><span><b>${entries.length ? 'None of these / not sure' : 'No entry to point at'}</b><small>${entries.length ? 'Say in Remarks how it was booked.' : 'No open entry for ' + esc(f.code) + ' — say in Remarks how it was booked (e.g. counted in a stock check).'}</small></span></label>`;
+    } catch (x) { if (entriesFor === f.code) { entriesFor = null; box.innerHTML = `<div class="hint warn">${esc(x.message)}</div>`; } }
+  };
   const check = () => {
-    const q = num(val(m, 'rcQty')), f = U(val(m, 'rcFrom')), t = U(val(m, 'rcTo'));
+    const q = num(val(m, 'rcQty')), f = U(val(m, 'rcFrom')), t = U(val(m, 'rcTo')), h = how();
     const a = parseSerial(f), z = parseSerial(t), n = a && z && a.prefix === z.prefix && z.num >= a.num ? z.num - a.num + 1 : 0;
     $('#rcSerialHint', m.el).textContent = f ? (n ? fmtNum(n) + ' numbers' + (n === q ? '' : ' — but ' + fmtNum(q) + ' received. Check.') : 'These don’t make a range.') : '';
     $('#rcSerialHint', m.el).classList.toggle('warn', !!f && n !== q);
-    $('#rcRemReq', m.el).textContent = q < num(b.Final_Good) ? '(say why fewer arrived)' : '';
+    $('#rcRemReq', m.el).textContent = h === 'already' ? '(say how its goods were booked before)' : q < num(b.Final_Good) ? '(say why fewer arrived)' : '';
+    $('#rcEntriesBox', m.el).hidden = h !== 'already';
+    $('#rcSaveText', m.el).textContent = h === 'already' ? 'Receive — already in stock' : 'Receive and book into stock';
+    if (!b.FG_Code) { const it = item(); $('#rcItemHint', m.el).textContent = it ? it.name : val(m, 'rcItem') ? 'Not an FG item in Stock Management.' : `${b.Part_Code} has no Stock FG code. Pick the item here, or set “Stock FG code” on the product in Batch Card Tracker (Dropdowns → Products) so its batches pick it up.`; }
+    if (h === 'already') loadEntries();
   };
-  ['rcQty', 'rcFrom', 'rcTo'].forEach(id => $('#' + id, m.el).addEventListener('input', check)); check();
+  ['rcQty', 'rcFrom', 'rcTo', 'rcItem'].forEach(id => $('#' + id, m.el).addEventListener('input', check));
+  $$('input[name="rcHow"]', m.el).forEach(r => r.addEventListener('change', check));
+  if (!b.FG_Code) $('#rcItem', m.el).addEventListener('change', () => { $('#rcFor', m.el).innerHTML = lineOptions(item() ? item().code : '', b.Line_ID, true); check(); });
+  check();
   const txn = uuid();
   $('#rcSave', m.el).addEventListener('click', async (e) => {
     const err = $('#rcErr', m.el); err.textContent = '';
-    const p = { batchNo: b.Batch_No, qty: val(m, 'rcQty'), serialFrom: U(val(m, 'rcFrom')), serialTo: U(val(m, 'rcTo')), lineId: $('#rcFor', m.el).value, remarks: val(m, 'rcRemarks'), clientTxnId: txn };
+    const f = item(), h = how(), picked = $('input[name="rcTxn"]:checked', m.el);
+    const p = { batchNo: b.Batch_No, fgCode: f ? f.code : '', qty: val(m, 'rcQty'), serialFrom: U(val(m, 'rcFrom')), serialTo: U(val(m, 'rcTo')), lineId: $('#rcFor', m.el).value, remarks: val(m, 'rcRemarks'), clientTxnId: txn };
+    if (!f) { err.textContent = 'Pick the FG item this batch goes into.'; return; }
+    if (!h) { err.textContent = 'Say whether to book it into stock now, or that it is already in stock.'; return; }
     if (!(num(p.qty) > 0)) { err.textContent = 'Enter the quantity received.'; return; }
-    if (num(p.qty) < num(b.Final_Good) && p.remarks.length < 3) { err.textContent = 'Final Audit passed ' + b.Final_Good + '. Say why fewer arrived.'; return; }
+    if (h === 'already') {
+      if (p.remarks.length < 3) { err.textContent = 'Say in Remarks how its goods were booked before.'; $('#rcRemarks', m.el).focus(); return; }
+      p.alreadyInStock = true; p.linkedTxn = picked ? picked.value : '';
+    } else if (num(p.qty) < num(b.Final_Good) && p.remarks.length < 3) { err.textContent = 'Final Audit passed ' + b.Final_Good + '. Say why fewer arrived.'; return; }
     const done = btnBusy(e.currentTarget, 'Receiving…');
     try {
       const d = await api('receiveBatch', p);
-      try { const s = await stockMove('receipt', d.receipt.Receipt_ID); toast(b.Batch_No + ' received: ' + fmtNum(d.receipt.Qty) + ' into FG stock (' + s.txnId + ').', 'ok'); }
-      catch (x) { toast('Received, but not booked into FG stock yet: ' + x.message + ' Use “Book into stock” under Stores → Received.', true); }
+      if (h === 'already') toast(b.Batch_No + ' received — already in FG stock' + (p.linkedTxn ? ' (' + p.linkedTxn + ')' : '') + '. Nothing booked again.', 'ok');
+      else {
+        try { const s = await stockMove('receipt', d.receipt.Receipt_ID); toast(b.Batch_No + ' received: ' + fmtNum(d.receipt.Qty) + ' into FG stock (' + s.txnId + ').', 'ok'); }
+        catch (x) { toast('Received, but not booked into FG stock yet: ' + x.message + ' Use “Book into stock” under Stores → Received.', true); }
+      }
       m.close(); await refresh(true);
     } catch (x) { err.textContent = x.message; } finally { done(); }
   });
@@ -2286,9 +2348,10 @@ ACT['post-receipt'] = async (el) => {
 };
 ACT['undo-receipt'] = async (el) => {
   const r = S.by.receipt[el.dataset.r];
-  const why = await reasonBox('Undo receipt of ' + r.Batch_No + '?', 'Why? The quantity is taken back out of FG stock.', { ok: 'Undo receipt', danger: true });
+  const already = r.Already_In_Stock === 'Yes';
+  const why = await reasonBox('Undo receipt of ' + r.Batch_No + '?', already ? 'Why? It was received as already in stock, so FG stock doesn’t change.' : 'Why? The quantity is taken back out of FG stock.', { ok: 'Undo receipt', danger: true });
   if (why === null) return;
-  try { await api('undoReceipt', { receiptId: r.Receipt_ID, reason: why }); await stockMove('undoReceipt', r.Receipt_ID); toast('Receipt undone.', 'ok'); }
+  try { await api('undoReceipt', { receiptId: r.Receipt_ID, reason: why }); if (!already) await stockMove('undoReceipt', r.Receipt_ID); toast('Receipt undone.', 'ok'); }
   catch (e) { toast(e.message, true); }
   await refresh(true);
 };
@@ -2316,8 +2379,8 @@ function transportFields(d) {
     const v = d[k] === undefined || d[k] === null ? '' : d[k];
     let input;
     if (kind === 'date') input = `<input id="tf_${k}" type="date" value="${isoDay(v)}">`;
-    else if (kind === 'mode') input = `<select id="tf_${k}">${['', 'Road', 'Rail', 'Air', 'Courier', 'By hand'].map(x => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
-    else if (kind === 'freight') input = `<select id="tf_${k}">${['', 'Paid', 'To pay', 'Customer’s vehicle'].map(x => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
+    else if (kind === 'mode') input = `<select id="tf_${k}">${['', 'Air', 'By hand', 'Courier', 'Rail', 'Road'].map(x => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
+    else if (kind === 'freight') input = `<select id="tf_${k}">${['', 'Customer’s vehicle', 'Paid', 'To pay'].map(x => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('')}</select>`;
     else input = `<input id="tf_${k}" value="${esc(v)}" maxlength="120" ${kind === 'upper' ? 'class="mono" style="text-transform:uppercase" autocapitalize="characters"' : kind === 'eway' ? 'inputmode="numeric" maxlength="12" class="mono"' : ''}>`;
     return `<div class="field"><label for="tf_${k}">${esc(label)}</label>${input}</div>`;
   }).join('');
@@ -2330,7 +2393,7 @@ function readTransport(m) {
 function openDispatchForm(pre) {
   pre = pre || {};
   const preOrder = pre.orderNo ? S.by.order[pre.orderNo] : null;
-  const custs = S.D.customers.filter(c => c.Active !== false).sort((a, b) => String(a.Name).localeCompare(String(b.Name)));
+  const custs = S.D.customers.filter(c => c.Active !== false).sort((a, b) => azCmp(a.Name, b.Name));
   const m = openModal(modalHead('New dispatch', 'Dispatch goods', 'Batches for the order go first, then stock batches, oldest first. The serial numbers follow.') +
     `<div class="modal-body">${fgDatalist()}<div class="form-grid">
       <div class="field"><label for="dfCust">Customer <span class="req">*</span></label><select id="dfCust"><option value="" hidden>Select customer</option>${custs.map(c => `<option value="${esc(c.Customer_ID)}" ${preOrder && preOrder.Customer_ID === c.Customer_ID ? 'selected' : ''}>${esc(c.Name)}</option>`).join('')}</select></div>
@@ -2354,7 +2417,7 @@ function openDispatchForm(pre) {
   $('#tf_Packages', m.el).addEventListener('input', () => { touchedPk = true; });
   const fillCustomer = () => {
     const c = S.by.cust[$('#dfCust', m.el).value] || {};
-    const orders = S.D.orders.filter(o => o.Customer_ID === c.Customer_ID && isOpen(o));
+    const orders = S.D.orders.filter(o => o.Customer_ID === c.Customer_ID && isOpen(o)).sort((a, b) => azCmp(a.Order_No, b.Order_No));
     const sel = $('#dfOrder', m.el);
     sel.innerHTML = '<option value="">Without an order</option>' + orders.map(o => `<option value="${esc(o.Order_No)}">${esc(o.Order_No)}${o.Customer_PO ? ' · PO ' + esc(o.Customer_PO) : ''}${o.Required_By ? ' · by ' + day(o.Required_By) : ''}</option>`).join('');
     sel.value = preOrder && orders.some(o => o.Order_No === preOrder.Order_No) ? preOrder.Order_No : orders.length === 1 ? orders[0].Order_No : '';
@@ -2590,7 +2653,7 @@ function renderTrace() {
     const allocs = S.D.alloc.filter(a => batch ? U(a.Batch_No) === q : viaSerial && a.Serial_From && serialIn(q, a.Serial_From, a.Serial_To));
     const manual = viaSerial ? S.D.dlines.filter(l => l.Serials && U(l.Serials).split(/[\s,;]+/).indexOf(q) > -1 && !allocs.some(a => a.DLine_Row === l.Row_ID)) : [];
     batches.forEach(b => steps.push(['Made', `${bctLink(b.Batch_No)} · ${esc(b.Product_Name || b.Part_Code)} · started ${day(b.Created_At)}${b.Order_No ? ` · for <a href="#/order/${encodeURIComponent(b.Order_No)}" class="mono">${esc(b.Order_No)}</a>` : ''}${b.Serial_From ? ` · serials ${esc(b.Serial_From)}–${esc(b.Serial_To)}` : ''}`, b.Audited ? 'Passed Final Audit ' + day(b.Done_At) : b.Status]));
-    receipts.forEach(r => steps.push(['Received into stores', `<span class="mono">${esc(r.Receipt_ID)}</span> · ${fmtNum(r.Qty)} on ${dt(r.Received_At)} by ${esc(nameOf(r.Received_By))}`, r.Status === 'Received' ? (r.Stock_Txn ? 'FG stock ' + r.Stock_Txn : 'Not booked into stock') : 'Undone: ' + (r.Undo_Reason || '')]));
+    receipts.forEach(r => steps.push(['Received into stores', `<span class="mono">${esc(r.Receipt_ID)}</span> · ${fmtNum(r.Qty)} on ${dt(r.Received_At)} by ${esc(nameOf(r.Received_By))}`, r.Status === 'Received' ? (r.Stock_Txn ? 'FG stock ' + r.Stock_Txn : r.Already_In_Stock === 'Yes' ? 'Already in FG stock' + (r.Linked_Txn ? ' (' + r.Linked_Txn + ')' : '') : 'Not booked into stock') : 'Undone: ' + (r.Undo_Reason || '')]));
     allocs.forEach(a => { const d = S.by.disp[a.Dispatch_No] || {}; steps.push([a.Status === 'Active' ? 'Dispatched' : 'Dispatch cancelled', `<a href="#/dispatch/${encodeURIComponent(a.Dispatch_No)}" class="mono">${esc(a.Dispatch_No)}</a> · ${esc(d.Customer_Name || '')} · ${day(d.Dispatch_Date)}${d.Invoice_No ? ' · Invoice ' + esc(d.Invoice_No) : ''}`, a.Serial_From ? esc(a.Serial_From) + '–' + esc(a.Serial_To) + ' (' + fmtNum(a.Qty) + ')' : fmtNum(a.Qty) + ' pcs']); });
     manual.forEach(l => { const d = S.by.disp[l.Dispatch_No] || {}; steps.push(['Dispatched (typed serials)', `<a href="#/dispatch/${encodeURIComponent(l.Dispatch_No)}" class="mono">${esc(l.Dispatch_No)}</a> · ${esc(d.Customer_Name || '')} · ${day(d.Dispatch_Date)}`, esc(l.FG_Code)]); });
     if (!steps.length && S.by.order[q]) { go('#/order/' + encodeURIComponent(q)); return ''; }
