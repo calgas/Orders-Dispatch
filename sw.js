@@ -27,7 +27,7 @@
 // 27 Nov 2026, with a prefix of its own; the old address's caches are left
 // to the old address.
 const CACHE_PREFIX = 'orders-dispatch-shell-';
-const CACHE_VERSION = CACHE_PREFIX + 'v1';
+const CACHE_VERSION = CACHE_PREFIX + 'v2';
 const APP_SHELL = [
   './',
   './index.html',
