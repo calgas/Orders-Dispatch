@@ -23,8 +23,11 @@
 // changes, so an already-installed client picks up the new shell instead
 // of being stuck on an old cached one. Keep this in step with APP_VERSION
 // in index.html.
-const CACHE_PREFIX = 'production-tracker-shell-';
-const CACHE_VERSION = CACHE_PREFIX + 'v12';
+// Orders & Dispatch moved from /Production-Tracker/ to /Orders-Dispatch/ on
+// 27 Nov 2026, with a prefix of its own; the old address's caches are left
+// to the old address.
+const CACHE_PREFIX = 'orders-dispatch-shell-';
+const CACHE_VERSION = CACHE_PREFIX + 'v1';
 const APP_SHELL = [
   './',
   './index.html',
