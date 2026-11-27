@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="app-version" content="4.1.4">
+<meta name="app-version" content="4.1.5">
 <meta name="theme-color" content="#15181d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -218,6 +218,33 @@
   .sync { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
   .sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
   .sync.busy i { background: var(--warn); animation: pulse 1s infinite; } .sync.off i { background: var(--bad); }
+  /* Tap "Syncing…" (web 4.1.5) */
+  .sync-wrap { position: relative; display: inline-flex; flex: none; }
+  button.sync { border: 0; background: transparent; font: inherit; font-size: 12px; color: var(--ink-faint); cursor: pointer; padding: 6px 10px; border-radius: 999px; }
+  button.sync:hover, button.sync[aria-expanded="true"] { background: var(--hover); color: var(--ink); }
+  button.sync.busy { color: var(--ink-soft); }
+  .sync-panel { position: absolute; right: 0; top: calc(100% + 8px); width: 380px; max-width: calc(100vw - 24px); max-height: min(70vh, 520px);
+                display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lift); z-index: 60; overflow: hidden; text-align: left; }
+  .sync-panel.hidden { display: none !important; }
+  .sync-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--line-soft); }
+  .sync-head h4 { margin: 0; flex: 1; font-size: 14px; font-weight: 700; color: var(--ink); }
+  .sync-list { overflow-y: auto; flex: 1; overscroll-behavior: contain; padding: 4px 0 8px; }
+  .sync-sub { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+  .sync-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 16px; }
+  .sync-row b { display: block; font-size: 13px; color: var(--ink); font-weight: 600; }
+  .sync-row span { display: block; font-size: 12px; color: var(--ink-soft); margin-top: 1px; line-height: 1.4; }
+  .sync-ic { flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%; display: inline-flex !important; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-top: 0 !important; }
+  .sync-row.is-ok .sync-ic { background: rgba(46,160,90,.15); color: #23854a; }
+  .sync-row.is-bad .sync-ic { background: var(--bad-soft); color: var(--bad); }
+  .sync-row.is-run .sync-ic { background: var(--hover); }
+  .sync-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--warn); border-right-color: transparent; animation: syncspin .8s linear infinite; display: inline-block !important; margin: 0 !important; }
+  @keyframes syncspin { to { transform: rotate(360deg); } }
+  @media (max-width: 780px) {
+    .sync-wrap { display: none; }
+    .sync-wrap.show, .sync-wrap.open { display: inline-flex; }
+    .sync-wrap.show #syncText { max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+    .sync-panel { position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top, 0px) + 62px); width: auto; max-width: none; }
+  }
   @keyframes pulse { 50% { opacity: .35; } }
   .zoom-ctl { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); height: 38px; }
   .zoom-ctl button { width: 32px; height: 36px; font-weight: 700; color: var(--ink-soft); } .zoom-ctl button:hover { color: var(--ink); }
@@ -722,7 +749,8 @@
         <input id="searchInput" placeholder="Find an order, dispatch, batch, serial or customer" autocomplete="off" aria-label="Search">
         <div class="search-pop hidden" id="searchPop"></div>
       </div>
-      <span class="sync desk-only" id="sync"><i></i><span id="syncText">Up to date</span></span>
+      <div class="sync-wrap"><button type="button" class="sync" id="sync" aria-haspopup="dialog" aria-expanded="false" title="See what is being saved or loaded"><i></i><span id="syncText">Up to date</span></button>
+        <div class="sync-panel hidden" id="syncPanel" role="dialog" aria-label="What is syncing"></div></div>
       <div class="zoom-ctl desk-only" role="group" aria-label="Zoom"><button data-zoom="-1" aria-label="Zoom out">−</button><button data-zoom="0" class="zl" id="zoomLabel">100%</button><button data-zoom="1" aria-label="Zoom in">+</button></div>
       <button class="icon-btn desk-only" id="refreshBtn" title="Refresh" aria-label="Refresh"><svg class="icon"><use href="#i-refresh"/></svg></button>
       <button class="icon-btn" id="themeBtn" title="Light or dark" aria-label="Light or dark"><svg class="icon"><use href="#i-moon"/></svg></button>
@@ -1027,7 +1055,7 @@ const AppPrompts = (function () {
    app opens at once next time and refreshes behind what is on screen.
    ========================================================================= */
 
-const APP_VERSION = '4.1.4';
+const APP_VERSION = '4.1.5';
 const OD_API_URL = 'https://script.google.com/macros/s/AKfycbx_STLX2W1VDwOsxv3UpdpbPitg2ICXHXtbItWEvesmoQsuBdKO9Eg6KHwSoIZlPeO0CA/exec';
 const STOCK_API_URL = 'https://script.google.com/macros/s/AKfycbzs_aW0G-NvVvs-_Yk41d4esq1lkKVBTzQEQTrbbIKe7kQfoYdXD3cuhd6Wt2UQ6MU0/exec';
 const APP_URL = 'https://calgas.github.io/Production-Tracker/';
@@ -1096,13 +1124,91 @@ const TIMEOUTS = { uploadMedia: 90000, getBootstrap: 60000 };
 function setSync(state, text) {
   const el = $('#sync'); if (!el) return;
   el.classList.toggle('busy', state === 'busy'); el.classList.toggle('off', state === 'off');
+  // On phones the pill only shows while something is syncing, or offline.
+  el.parentElement.classList.toggle('show', state === 'busy' || state === 'off');
   $('#syncText').textContent = text;
+  syncPanelRefresh();
 }
 function syncIdle() { setSync(navigator.onLine === false ? 'off' : '', navigator.onLine === false ? 'Offline' : (S.lastSync ? 'Updated ' + ago(S.lastSync) : 'Up to date')); }
+/* ---------- what "Syncing…" is doing (web 4.1.5) ----------
+   Tap the pill: every request to the server while it runs, in plain words,
+   with how long it has taken, and the last few that finished (a tick, or why
+   it failed). Quiet background checks that went fine aren't kept. */
+const SYNC = { running: [], done: [], timer: null };
+const SYNC_QUIET = { getNotifications: 1, version: 1, getMedia: 1 };
+function syncLabel(action, p) {
+  const no = v => v ? ' ' + v : '';
+  switch (action) {
+    case 'getBootstrap': return 'Loading orders, batches and stock';
+    case 'getStockEntries': return 'Looking up stock entries for' + no(p.fgCode);
+    case 'saveCustomer': return 'Saving customer' + no(p.customer && (p.customer.Name || p.customer.Customer_ID));
+    case 'saveOrder': return (p.order && p.order.Order_No ? 'Saving order ' + p.order.Order_No : 'Saving a new order');
+    case 'setOrderStatus': return 'Changing the status of' + no(p.orderNo) + (p.status ? ' to ' + p.status : '');
+    case 'receiveBatch': return 'Receiving' + no(p.batchNo) + ' into stores' + (p.alreadyInStock ? ' (already in stock)' : '');
+    case 'relinkReceipt': return 'Changing which order' + no(p.receiptId) + ' is for';
+    case 'undoReceipt': return 'Undoing receipt' + no(p.receiptId);
+    case 'createDispatch': return 'Saving the dispatch' + no(p.dispatch && p.dispatch.Order_No ? 'for ' + p.dispatch.Order_No : '');
+    case 'updateDispatch': return 'Saving changes to' + no(p.dispatchNo);
+    case 'cancelDispatch': return 'Cancelling' + no(p.dispatchNo);
+    case 'uploadMedia': return 'Uploading a photo';
+    case 'saveSettings': return 'Saving settings';
+    case 'postOrderMovement': return ({ receipt: 'Booking ' + p.id + ' into FG stock', undoReceipt: 'Taking ' + p.id + ' back out of FG stock',
+      dispatch: 'Booking dispatch ' + p.id + ' out of FG stock', cancelDispatch: 'Putting dispatch ' + p.id + ' back into FG stock' })[p.kind] || 'Updating FG stock';
+    case 'login': return 'Signing in';
+    case 'logout': return 'Signing out';
+    case 'version': return 'Checking for a new version';
+  }
+  const plain = action.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+  return plain.charAt(0).toUpperCase() + plain.slice(1);
+}
+function syncStart(action, params) {
+  const j = { action, label: syncLabel(action, params || {}), at: Date.now() };
+  SYNC.running.push(j); syncPanelRefresh(); return j;
+}
+function syncEnd(j, ok, error) {
+  SYNC.running = SYNC.running.filter(x => x !== j);
+  j.ms = Date.now() - j.at; j.ok = ok; j.error = ok ? '' : String(error || 'Failed');
+  if (!(ok && SYNC_QUIET[j.action])) { SYNC.done.unshift(j); SYNC.done = SYNC.done.slice(0, 12); }
+  syncPanelRefresh();
+}
+function syncSecs(ms) { return ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + ' s'; }
+function syncOpen() { const p = $('#syncPanel'); return !!p && !p.classList.contains('hidden'); }
+function syncPanelRefresh() { if (syncOpen()) renderSyncPanel(); }
+function renderSyncPanel() {
+  const p = $('#syncPanel'); if (!p) return;
+  const now = Date.now(), off = navigator.onLine === false, run = SYNC.running.slice().sort((a, b) => a.at - b.at);
+  const head = off ? 'Offline — nothing can reach the server' : run.length ? 'Syncing ' + run.length + (run.length === 1 ? ' thing' : ' things') : 'Everything is saved';
+  p.innerHTML = `<div class="sync-head"><h4>${esc(head)}</h4><button type="button" class="icon-btn" data-sync="close" aria-label="Close">&#10005;</button></div><div class="sync-list">` +
+    (run.length ? run.map(j => {
+      const t = now - j.at;
+      return `<div class="sync-row is-run"><span class="sync-ic"><span class="sync-spin"></span></span><div><b>${esc(j.label)}</b><span>${syncSecs(t)}${t > 12000 ? ' — Google is slow right now; it carries on by itself' : ''}</span></div></div>`;
+    }).join('') : `<div class="sync-row is-ok"><span class="sync-ic">✓</span><div><b>Nothing waiting</b><span>${off ? 'Changes wait until the connection is back.' : 'All your changes have reached the server' + (S.lastSync ? ' · updated ' + esc(ago(S.lastSync)) : '') + '.'}</span></div></div>`) +
+    (SYNC.done.length ? '<div class="sync-sub">Just now</div>' + SYNC.done.map(j =>
+      `<div class="sync-row ${j.ok ? 'is-ok' : 'is-bad'}"><span class="sync-ic">${j.ok ? '✓' : '✕'}</span><div><b>${esc(j.label)}</b><span>${j.ok ? 'Done in ' + syncSecs(j.ms) : esc(j.error)} · ${esc(ago(j.at + j.ms))}</span></div></div>`).join('') : '') +
+    '</div>';
+  clearTimeout(SYNC.timer);
+  if (run.length) SYNC.timer = setTimeout(syncPanelRefresh, 1000);
+}
+function toggleSyncPanel(open) {
+  const p = $('#syncPanel'), b = $('#sync'); if (!p || !b) return;
+  if (open === undefined) open = p.classList.contains('hidden');
+  if (open) { renderSyncPanel(); p.classList.remove('hidden'); } else { p.classList.add('hidden'); clearTimeout(SYNC.timer); }
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  b.parentElement.classList.toggle('open', open);
+}
+function wireSync() {
+  const b = $('#sync'), p = $('#syncPanel'); if (!b || !p) return;
+  b.addEventListener('click', e => { e.stopPropagation(); toggleSyncPanel(); });
+  p.addEventListener('click', e => { e.stopPropagation(); if (e.target.closest('[data-sync="close"]')) toggleSyncPanel(false); });
+  document.addEventListener('click', () => { if (syncOpen()) toggleSyncPanel(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && syncOpen()) toggleSyncPanel(false); });
+}
 async function post(url, action, params, timeout) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeout || 30000);
-  S.inflight++; setSync('busy', 'Saving…');
+  const job = syncStart(action, params);
+  let ok = false, failed = '';
+  S.inflight++; setSync('busy', 'Syncing…');
   try {
     const body = Object.assign({ action }, params || {});
     if (S.session && !body.token && action !== 'login') body.token = S.session.token;
@@ -1120,9 +1226,11 @@ async function post(url, action, params, timeout) {
       err.network = res.status >= 500; throw err;
     }
     if (!json.success) { const err = new Error(json.error || 'Something went wrong.'); err.code = json.code; throw err; }
+    ok = true;
     return json.data;
-  } finally {
+  } catch (e) { failed = e && e.message; throw e; } finally {
     clearTimeout(t); S.inflight = Math.max(0, S.inflight - 1);
+    syncEnd(job, ok, failed);
     if (!S.inflight) syncIdle();
   }
 }
@@ -2022,6 +2130,7 @@ function wire() {
   });
   pullToRefresh($('#content'));
   window.addEventListener('online', syncIdle); window.addEventListener('offline', syncIdle);
+  wireSync();
   window.addEventListener('afterprint', () => { $('#printRoot').innerHTML = ''; });
   setInterval(() => { if (S.session && S.D && document.visibilityState === 'visible' && !S.inflight && !$('.modal-bg') && Date.now() - S.lastSync > 120000) refresh(true); }, 30000);
   setInterval(() => { if (!S.inflight) syncIdle(); }, 30000);
