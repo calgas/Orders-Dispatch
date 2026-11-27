@@ -2,9 +2,10 @@
 
 Customer orders, the batches made for them, receiving finished batches into
 stores, and dispatches with a printable delivery note. This is the rebuilt
-Production Tracker (4.0): same address, same sign-in.
+Production Tracker (4.0); the repository took the app's own name on
+27 Nov 2026 (it was calgas/Production-Tracker). Same sign-in.
 
-https://calgas.github.io/Production-Tracker/
+https://calgas.github.io/Orders-Dispatch/
 
 ## How the three apps fit together
 
